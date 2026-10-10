@@ -1,0 +1,107 @@
+app ANIMARayTracedRoom {
+  scene Room {
+    node Screen {
+      flow: column(cross: stretch, route: start, gap: 12);
+      wide: "100%";
+      fill: "#080b09";
+      ink: "#f4f3eb";
+      inset: "18px";
+      place: relative;
+      node Eyebrow: Small {
+        text: "UNRECORDED LABS  /  ANIMA GRAPHICS LAB  /  001";
+        scale: 10;
+        weight: 700;
+        tracking: "0.16em";
+        ink: "#a5b7a0";
+      }
+      node Title: Heading {
+        text: "Ray tracing comparison";
+        scale: 30;
+        weight: 520;
+        ink: "#f4f3eb";
+        offset: "3px 0 0";
+        motion: Reveal;
+      }
+      node Intro: Paragraph {
+        text: "A weathered room and an overgrown window. Compare a direct-light reference render with a compute-shader path-tracing pass.";
+        scale: 13;
+        leading: 1.65;
+        ink: "#a5aaa1";
+        cap: "820px";
+      }
+      node Controls {
+        flow: row(cross: center, route: start, gap: 8, wrap: true);
+        offset: "5px 0 2px";
+        node RayOn: Button {
+          text: "Ray tracing · ON";
+          inset: "11px 17px";
+          curve: 999;
+          fill: "#d9e7c7";
+          ink: "#10190f";
+          weight: 700;
+          edge: "1px solid #d9e7c7";
+          on click: gpu.setRayTracing(true);
+        }
+        node RayOff: Button {
+          text: "Ray tracing · OFF";
+          inset: "11px 17px";
+          curve: 999;
+          fill: "rgba(255,255,255,0.055)";
+          ink: "#e8eae4";
+          weight: 600;
+          edge: "1px solid rgba(255,255,255,0.15)";
+          on click: gpu.setRayTracing(false);
+        }
+        node StartRoom: Button {
+          text: "Restart renderer";
+          inset: "11px 15px";
+          curve: 999;
+          fill: "rgba(255,255,255,0.055)";
+          ink: "#c2c9bd";
+          edge: "1px solid rgba(255,255,255,0.12)";
+          on click: gpu.roomRaytrace("RoomCanvas", true);
+        }
+        node ResetRoom: Button {
+          text: "Reset samples";
+          inset: "11px 15px";
+          curve: 999;
+          fill: "rgba(255,255,255,0.055)";
+          ink: "#c2c9bd";
+          edge: "1px solid rgba(255,255,255,0.12)";
+          on click: gpu.resetRayTracing();
+        }
+        node PauseRoom: Button {
+          text: "Pause";
+          inset: "11px 15px";
+          curve: 999;
+          fill: "rgba(255,255,255,0.055)";
+          ink: "#c2c9bd";
+          edge: "1px solid rgba(255,255,255,0.12)";
+          on click: gpu.stop();
+        }
+      }
+      node GpuStatus: Paragraph {
+        text: "Preparing WebGPU path tracer…";
+        scale: 11;
+        leading: 1.4;
+        ink: "#b8d5a8";
+        offset: "0 0 2px";
+      }
+      node RoomCanvas: canvas {
+        wide: "100%";
+        tall: 520;
+        curve: 18;
+        fill: "#11150f";
+        edge: "1px solid rgba(215,226,205,0.16)";
+        halo: "0 22px 70px rgba(0,0,0,0.30)";
+      }
+      node Caption: Small {
+        text: "COMPUTE-SHADER RAY TRACING · ACCUMULATED SAMPLES · PROCEDURAL ROOM GEOMETRY";
+        scale: 9;
+        weight: 600;
+        tracking: "0.09em";
+        ink: "#778274";
+      }
+    }
+  }
+}

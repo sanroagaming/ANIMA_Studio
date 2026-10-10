@@ -1,0 +1,16 @@
+ANIMA 0.3
+
+define add(a: whole, b: whole) -> whole {
+    give a + b
+}
+
+define clamp_hp(hp: whole, max_hp: whole) -> whole {
+    when hp < 0 { give 0 }
+    when hp > max_hp { give max_hp }
+    give hp
+}
+
+test "integer addition" { expect_equal(add(3, 4), 7) }
+test "below zero clamps" { expect_equal(clamp_hp(-5, 100), 0) }
+test "above max clamps" { expect_equal(clamp_hp(500, 100), 100) }
+test "truth assertion" { expect(2 + 2 == 4) }

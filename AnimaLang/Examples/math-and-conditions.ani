@@ -1,0 +1,19 @@
+ANIMA 0.2
+
+project "Math and Conditions" {
+    target native.windows
+}
+
+start {
+    let width: real <- 1920
+    let height: real <- 1080
+    let pixels: real <- width * height
+    announce "Frame pixel count:"
+    announce pixels
+
+    when pixels > 2000000 {
+        announce "High-resolution render selected."
+    } otherwise {
+        announce "Standard-resolution render selected."
+    }
+}

@@ -1,0 +1,24 @@
+ANIMA 0.3
+
+project "ANIMA Machine Inspector" {
+    target native.windows
+    capability cpu.parallel
+    capability gpu.compute
+    capability gpu.dxr_query
+}
+
+start {
+    announce "ANIMA 0.3 native capability report"
+    announce "Host platform: {host.platform()}"
+    announce "Logical CPU cores: {cpu.logical_cores()}"
+    announce "GPU adapter: {gpu.adapter()}"
+    announce "GPU backend: {gpu.backend()}"
+    announce "Dedicated video memory (MiB): {gpu.vram_mb()}"
+    announce "DXR supported: {gpu.dxr_supported()}"
+    when gpu.available() {
+        announce "Squares calculated through the native GPU API: {gpu.squares(8)}"
+    } otherwise {
+        announce "GPU compute is unavailable; this is a capability result, not a language crash."
+    }
+    announce "CPU parallel sum: {cpu.parallel_sum(1000000)}"
+}

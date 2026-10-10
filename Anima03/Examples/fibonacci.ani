@@ -1,0 +1,13 @@
+ANIMA 0.3
+
+# Appendix A.1 from the ANIMA 0.3 Engineering Specification.
+define fib(n: whole) -> whole {
+    when n < 2 { give n }
+    give fib(n - 1) + fib(n - 2)
+}
+
+start {
+    repeat each n in [0, 1, 2, 3, 10, 20] {
+        announce "fib({n}) = {fib(n)}"
+    }
+}

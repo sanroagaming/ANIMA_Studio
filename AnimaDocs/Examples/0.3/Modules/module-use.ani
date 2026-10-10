@@ -1,0 +1,13 @@
+ANIMA 0.3
+
+use "math_tools.ani" as tools
+
+start {
+    announce tools.double(21)
+    announce tools.quadruple(21)
+    let dial: tools.Dial <- tools.Dial.high
+    announce "Dial {dial.name} = {dial.value}"
+    let bounds: tools.Bounds <- tools.Bounds(maximum: 80)
+    announce bounds
+    announce bounds.direction.name
+}

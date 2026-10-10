@@ -1,0 +1,20 @@
+ANIMA 0.2
+
+project "Reusable Definitions" {
+    target native.windows
+}
+
+define greet {
+    announce "Hello from an ANIMA definition."
+}
+
+define report_cores {
+    let cores: whole <- cpu.logical_cores()
+    announce "Logical CPU cores:"
+    announce cores
+}
+
+start {
+    perform greet
+    perform report_cores
+}

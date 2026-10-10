@@ -1,0 +1,50 @@
+ANIMA 0.3
+
+# SPECIFICATION TARGET — design sample from Appendix A.2.
+# Not executable in the 0.3bc preview: records, classes, traits, vec3, std.time and std.random
+# become executable over milestones 0.3b–0.3e.
+project "Arena" {
+    target native.windows
+    capability time.clock
+}
+use std.random
+use std.time
+
+trait Component {
+    define update(dt: real)
+}
+
+class Body {
+    field pos: vec3 <- vec3(0, 0, 0)
+    field vel: vec3 <- vec3(0, 0, 0)
+}
+
+class Mover is Component {
+    field body: Body
+    define update(dt: real) {
+        body.pos <- body.pos + body.vel * dt
+    }
+}
+
+class Entity {
+    field name: text
+    field parts: list of Component <- []
+    define add(part: Component) { parts.add(part) }
+    define update(dt: real) {
+        repeat each p in parts { p.update(dt) }
+    }
+}
+
+start {
+    let clock <- time.Clock(1.0 / 60.0)
+    let rng <- random.Random(42)
+    let body <- Body()
+    body.vel <- vec3(rng.next_real(), 0, 0)
+    let hero <- Entity("hero")
+    hero.add(Mover(body))
+    repeat 120 {
+        let steps <- clock.advance(0.016)
+        repeat steps { hero.update(clock.step) }
+    }
+    announce "x after about 2 s: {body.pos.x}"
+}

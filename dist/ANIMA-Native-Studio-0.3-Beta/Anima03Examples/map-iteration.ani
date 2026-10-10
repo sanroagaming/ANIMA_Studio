@@ -1,0 +1,12 @@
+ANIMA 0.3
+
+project "Ordered Map Iteration" {
+    target native.windows
+}
+
+start {
+    let scores: map of text to whole <- ["Ada": 10, "Grace": 12, "Alan": 8]
+    repeat each name, score in scores {
+        announce "{name} scored {score}"
+    }
+}

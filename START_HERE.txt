@@ -1,0 +1,22 @@
+ANIMA NATIVE STUDIO 0.3 BETA — START HERE
+
+DEVELOPMENT BUILD
+1. Install Visual Studio 2022 with Desktop development with C++, MSVC v143 and Windows 10/11 SDK.
+2. Open ANIMA_Studio.sln.
+3. Set AnimaStudio as startup project. Build Debug | x64.
+4. Press F5, or run Build-ANIMA.bat from the source tree.
+
+PORTABLE TESTER BUILD
+1. From a Windows developer PC with Visual Studio 2022, double-click Publish-ANIMA-Beta.bat.
+2. Let it build Release | x64, run the language self-tests and smoke suite, and stage all runtime assets.
+3. Share dist\ANIMA-Native-Studio-0.3-Beta-Portable.zip with testers.
+4. Test the ZIP on a clean Windows account or PC; extract it fully and double-click Launch ANIMA Studio.bat.
+
+USING THE APP
+- Home: primary actions
+- Learn: open documentation and language references
+- Examples: check/run .ani samples; output is displayed in a console window
+- Graphics lab: open D3D12 room scene and teaser media
+- Developer tools: self-tests, doctor, starter generator, source picker
+
+Release executables use the static MSVC runtime (/MT), so Visual Studio is not needed on the tester's PC. Native Direct3D 12 rendering requires compatible Windows graphics support. ANIMA 0.3 remains a Beta; see ANIMA_03_BETA_GAP_MATRIX.md for known gaps.

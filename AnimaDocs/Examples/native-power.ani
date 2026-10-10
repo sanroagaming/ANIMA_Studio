@@ -1,0 +1,49 @@
+ANIMA 0.2
+
+# ANIMA Native 0.2 Preview — CPU + GPU capability tour.
+project "ANIMA Native Power" {
+    target native.windows
+    runtime direct
+    capability cpu.parallel
+    capability gpu.compute
+    capability gpu.dxr_query
+}
+
+define report_machine {
+    announce "Machine overview"
+    announce "Host platform:"
+    announce host.platform()
+    announce "Logical CPU cores:"
+    announce cpu.logical_cores()
+    announce "GPU adapter:"
+    announce gpu.adapter()
+    announce "GPU backend:"
+    announce gpu.backend()
+    announce "Dedicated GPU memory (MB):"
+    announce gpu.vram_mb()
+    announce "DXR hardware ray tracing supported:"
+    announce gpu.dxr_supported()
+}
+
+start {
+    perform report_machine
+
+    let cpu_sum: whole <- cpu.parallel_sum(1000000)
+    announce "Parallel CPU sum from 1 to 1,000,000:"
+    announce cpu_sum
+
+    when gpu.available() {
+        announce "Running native Direct3D 12 compute shader..."
+        let squares: series <- gpu.squares(16)
+        announce "GPU squares (1 through 16):"
+        announce squares
+    } otherwise {
+        announce "Native GPU compute is unavailable on this host."
+        announce "Run this program on Windows with a supported D3D12 adapter."
+    }
+
+    announce "Three native runtime ticks:"
+    repeat 3 {
+        announce "ANIMA is running."
+    }
+}

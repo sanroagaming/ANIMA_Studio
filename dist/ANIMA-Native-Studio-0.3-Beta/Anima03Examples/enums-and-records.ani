@@ -1,0 +1,26 @@
+ANIMA 0.3
+
+project "ANIMA Data Types" {
+    target native.windows
+    capability cpu.parallel
+}
+
+enum ActorState { idle, roaming, hunting <- 10, defeated }
+
+record Actor {
+    name: text <- "Unknown"
+    health: whole <- 100
+    state: ActorState <- ActorState.idle
+}
+
+start {
+    let hero: Actor <- Actor(name: "Mara", health: 85, state: ActorState.roaming)
+    announce "{hero.name}: {hero.health} HP"
+    announce "State: {hero.state.name} ({hero.state.value})"
+    let improved <- hero with { health: 100, state: ActorState.hunting }
+    announce improved
+    announce "Original stays: {hero.state}"
+    announce "Known states: {ActorState.all()}"
+    let byName <- ActorState.from_name("defeated")
+    announce byName fallback ActorState.idle
+}

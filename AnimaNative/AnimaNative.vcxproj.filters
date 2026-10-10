@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup><Filter Include="Source Files"><UniqueIdentifier>{1D5D44B6-3DE2-4D2A-9CB0-25C477C9F4E1}</UniqueIdentifier></Filter><Filter Include="Header Files"><UniqueIdentifier>{E5F6E57A-1062-42F1-89A7-AAC6529FCD44}</UniqueIdentifier></Filter><Filter Include="Shaders"><UniqueIdentifier>{65AC849A-27CB-4C10-A7B7-7B0A20CD5BD1}</UniqueIdentifier></Filter><Filter Include="Examples"><UniqueIdentifier>{BEA0E6D3-96D5-4C37-9D2B-8CC1A6D6443D}</UniqueIdentifier></Filter><Filter Include="Documentation"><UniqueIdentifier>{F7099437-B6A6-4760-BF29-8AE5964A4C12}</UniqueIdentifier></Filter></ItemGroup>
+  <ItemGroup><ClCompile Include="src\main.cpp"><Filter>Source Files</Filter></ClCompile><ClCompile Include="src\NativeAnima.cpp"><Filter>Source Files</Filter></ClCompile><ClCompile Include="src\NativeRenderer.cpp"><Filter>Source Files</Filter></ClCompile></ItemGroup>
+  <ItemGroup><ClInclude Include="src\NativeAnima.h"><Filter>Header Files</Filter></ClInclude><ClInclude Include="src\NativeRenderer.h"><Filter>Header Files</Filter></ClInclude></ItemGroup>
+  <ItemGroup><None Include="shaders\room_compute.hlsl"><Filter>Shaders</Filter></None><None Include="shaders\blit.hlsl"><Filter>Shaders</Filter></None><None Include="Examples\raytrace-room.anima"><Filter>Examples</Filter></None><None Include="README.md"><Filter>Documentation</Filter></None><None Include="docs\NATIVE_ROADMAP.md"><Filter>Documentation</Filter></None></ItemGroup>
+</Project>

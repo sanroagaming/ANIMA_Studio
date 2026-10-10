@@ -1,0 +1,1324 @@
+ANIMA 0.3 — Engineering Specification
+Language, compiler, runtime, standard library and tooling
+Unrecorded Labs · Language & Runtime
+Revision 1.0 · 10 October 2026
+Contents
+0. About this document
+1. Executive summary and ratified decisions
+2. Baseline: ANIMA 0.2 Preview
+3. Lexical specification
+4. Grammar
+5. Type system
+6. Semantics
+7. Declarations in detail
+8. Modules, projects and capabilities
+9. Memory and runtime model
+10. Bytecode and virtual machine
+11. Compiler pipeline
+12. Diagnostics and error model
+13. Standard library
+14. C++ host API
+15. Unified UI system
+16. Command-line tools and REPL
+17. Repository, build and engineering standards
+18. Testing strategy
+19. Performance and determinism
+20. Migration and compatibility
+21. Milestones and work packages
+22. Scope: must, stretch, not in 0.3
+23. The path to a game engine
+24. Security and sandboxing
+25. Risk register
+26. Governance and open items
+Appendix A. Example programs
+Appendix B. Glossary
+0. About this document
+This is the working engineering specification for ANIMA 0.3. It is written to be built from: every feature has a syntax, a typing rule, a runtime behaviour, an error behaviour and a test expectation. Where something is a design choice rather than a fact, it says so.
+Status of decisions. Decisions D1 to D6 (section 1) are ratified. Everything marked [Stretch] may be cut without failing 0.3. Everything marked [Reserved] is intentionally not built in 0.3 but its keywords and extension points are protected now.
+Evidence base. The 0.2 baseline in section 2 comes from reading the 0.2 Preview sources and from building and running them on Linux with g++ 13 (all three .ani examples pass; the CPU sum returns 500000500000). The Windows/MSVC/D3D12 paths were not exercised. The legacy .anima property and node inventory in section 15 is taken from the shipped samples and docs and must be completed against the full legacy runtime in work package F1 before the migrator is declared done.
+Conventions. monospace is source or code. “Must” is a requirement, “should” is a strong default, “may” is optional. Work packages are numbered A1, B3 and so on, by milestone.
+1. Executive summary and ratified decisions
+1.1 What 0.3 delivers
+One language. A single grammar, extension .ani, header ANIMA 0.3. The old .anima dialect is retired and converted by anima migrate.
+A real pipeline. Lexer, parser, AST, checker, bytecode compiler, stack VM. Each stage is separately testable. Every syntax and type error is reported, with line, column and a source snippet, before any code runs.
+A static type system with local inference: whole (int64), real (float64), text, truth, list of T, map of K to V, maybe T, function types, records, classes, traits, enums, and engine math types.
+Functions and closures: parameters, defaults, named arguments, return values, lambdas, lexical scopes.
+Objects: records (value semantics), classes (reference semantics, single inheritance, traits, abstract, override, constructors, finishers, weak references), enums.
+Modules and capabilities: use / from ... use / export, a project manifest, and a capability list that gates native access (GPU, files, clock).
+A standard library of 12 modules (std.core, math, io, json, time, random, log, test, cpu, gpu, host, ui) and roughly 150 functions and methods, plus engine math types.
+A C++ host API so engine features arrive as typed native modules that the checker can verify.
+Declarative UI as part of the language: app, state, scene, node, on events, with typed node and property catalogues and a scene tree that can be dumped and tested.
+A test and tooling baseline: anima run | check | test | repl | migrate | dis | scene, golden-file conformance tests, differential tests against the 0.2 evaluator, fuzzing, benchmarks with thresholds.
+1.2 Ratified decisions
+1.3 What 0.3 does not do
+No ahead-of-time compiler or .exe bundling. No new GPU pipeline (DXR, kernels, resource handles). No native drawing of UI. No user-defined generics. No async, tasks or language-level threads. No raw pointers, manual memory, or dynamic library loading. No package manager. No formatter. These are listed in section 22 with the versions that own them.
+2. Baseline: ANIMA 0.2 Preview
+2.1 What exists
+2.2 Measured and observed behaviour
+2.3 Compatibility promise
+0.2 .ani programs will run on 0.3 after anima migrate (header bump plus the rewrites in section 20). The 0.2 examples and all legacy .anima samples become permanent regression tests. The 0.2 evaluator is kept in the repository as the reference implementation for differential testing until the end of 0.3, then archived.
+3. Lexical specification
+3.1 Source files
+Encoding: UTF-8. A leading byte-order mark is accepted and ignored. Any invalid UTF-8 sequence is error ANI-L009.
+Line endings: LF, CRLF and lone CR are all accepted and normalised to LF for position tracking. Line and column numbers are 1-based; columns count UTF-8 code points, not bytes.
+Tab characters are whitespace. The language is not indentation sensitive.
+The first non-comment token must be the identifier ANIMA followed by a version number. Version 0.3 is required for this grammar; 0.2 selects the compatibility mode (section 20.4) when the runner is invoked with --compat 0.2, and otherwise reports ANI-P005 with a hint to run anima migrate.
+Maximum file size 8 MiB; maximum line length 64 KiB; maximum nesting depth 200 (blocks, parentheses and brackets combined). Exceeding any limit is ANI-L010.
+3.2 Comments
+# to end of line, // to end of line, and /* block, may span lines, does not nest */. Comments never produce tokens. An unterminated block comment is ANI-L005.
+3.3 Identifiers and keywords
+Identifiers start with an ASCII letter or underscore and continue with ASCII letters, digits or underscores. Convention: snake_case for values, functions, fields and modules; PascalCase for types, classes, records, enums, traits and UI node types; UPPER_CASE only for constants imported from the host (for example PI). Non-ASCII identifiers are [Reserved] for a later version.
+Reserved words (cannot be used as identifiers):
+abstract and app as attempt always announce class define each else enum export false fail field fixed fn from give in is let list make map maybe none node not of on or otherwise override perform private project record repeat rescue scene self shared skip start state stop super test to trait true use weak when while with extend finish
+(else is reserved but unused, so that it is never confused with otherwise.)
+Reserved for future versions (an identifier with these names is error ANI-L011 so that user code will not break later):
+async await case generic handle kernel match shader task unsafe where yield native switch
+Contextual words (valid identifiers outside their syntax position): click, press, hover, focus (event names after on), fallback (binary operator), step, pick.
+3.4 Literals
+3.5 Operators and punctuation
++ - * / % == != < <= > >= <- += -= *= /= %= -> .. ..= . , : ; ( ) [ ] { } ?
+and, or, not, is, as, with and fallback are word operators. The semicolon is optional and equals a newline, so a <- 1; b <- 2 is legal on one line. ? is [Reserved].
+3.6 Newline significance
+A newline ends a statement or declaration unless one of the following holds, in which case it is ignored:
+The parser is inside ( ) or [ ].
+The last token on the line is a binary operator, ,, <-, ->, ., :, (, [, {, or one of the keywords and or not is as with fallback in of to.
+The first token on the next line is . (method chaining) or one of the word operators and, or, fallback.
+The next token after the newline(s) is otherwise and the previous token was the } closing a when or otherwise when block.
+An opening { must be on the same line as the construct that owns it. when x > 1\n{ is error ANI-P012 with the hint “put ‘{’ on the same line”.
+3.7 Token structure
+Each token carries kind, lexeme (a view into the source), start and end as byte offsets, and line/column of the start. Interpolated text is lexed into a TextStart, a sequence of TextPart and nested expression tokens, and a TextEnd, so the parser never re-scans strings. The lexer produces tokens on demand (pull model) and supports checkpoint and rewind of one token for the parser’s is/as lookahead.
+3.8 Lexical errors
+ANI-L001 unterminated text literal; L002 invalid escape sequence; L003 invalid number literal; L004 unexpected character; L005 unterminated block comment; L006 reserved for future use; L007 invalid \u{} escape; L008 whole literal out of range; L009 invalid UTF-8; L010 limit exceeded; L011 reserved word used as identifier. The lexer recovers by skipping to the next whitespace or delimiter and continues, so several lexical errors can be reported in one run.
+4. Grammar
+The grammar is written in EBNF. { x } is zero or more, [ x ] optional, a | b alternatives, NL a significant newline or ;. The parser is hand-written: recursive descent for declarations and statements, Pratt (precedence climbing) for expressions. It must never be generated.
+4.1 Program structure
+program        := header { top_item } 
+header         := "ANIMA" VERSION NL
+top_item       := project | use_decl | declaration | start_block | app_decl | test_block
+project        := "project" TEXT "{" { project_field } "}"
+project_field  := ("target" | "entry" | "version" | "runtime") qname NL
+                | "paths" TEXT { "," TEXT } NL
+                | "capability" qname NL
+use_decl       := "use" qname [ "as" IDENT ] NL
+                | "from" qname "use" IDENT { "," IDENT } NL
+declaration    := [ "export" ] ( function | record | class | trait | enum | const_decl | extend )
+const_decl     := "fixed" IDENT [ ":" type ] "<-" expr NL
+start_block    := "start" block
+test_block     := "test" TEXT block
+4.2 Functions, types and members
+function       := "define" IDENT "(" [ params ] ")" [ "->" type ] block
+params         := param { "," param }
+param          := IDENT ":" type [ "<-" expr ]
+lambda         := "fn" "(" [ params ] ")" [ "->" type ] block
+record         := "record" IDENT "{" { rec_member } "}"
+rec_member     := IDENT ":" type [ "<-" expr ] ( NL | "," ) | function
+class          := [ "abstract" ] "class" IDENT [ "is" qname { "," qname } ] "{" { class_member } "}"
+class_member   := [ "private" ] [ "shared" ] "field" IDENT ":" type [ "<-" expr ] NL
+                | [ "private" ] [ "shared" ] [ "override" | "abstract" ] function
+                | "make" "(" [ params ] ")" block
+                | "finish" block
+trait          := "trait" IDENT [ "is" qname { "," qname } ] "{" { trait_member } "}"
+trait_member   := "define" IDENT "(" [ params ] ")" [ "->" type ] [ block ]
+enum           := "enum" IDENT [ ":" "whole" ] "{" enum_case { ( "," | NL ) enum_case } "}"
+enum_case      := IDENT [ "<-" INTEGER ]
+extend         := "extend" qname "{" { function } "}"                 [Stretch]
+type           := qname | "list" "of" type | "map" "of" type "to" type | "maybe" type
+                | "weak" qname | "fn" "(" [ type { "," type } ] ")" [ "->" type ]
+qname          := IDENT { "." IDENT }
+4.3 Statements
+block          := "{" { statement } "}"
+statement      := let_stmt | assign_stmt | expr_stmt | when_stmt | repeat_stmt
+                | give_stmt | stop_stmt | skip_stmt | announce_stmt | fail_stmt
+                | attempt_stmt | perform_stmt | const_decl | block
+let_stmt       := "let" IDENT [ ":" type ] "<-" expr NL
+assign_stmt    := target ( "<-" | "+=" | "-=" | "*=" | "/=" | "%=" ) expr NL
+target         := IDENT | expr "." IDENT | expr "[" expr "]"
+when_stmt      := "when" expr block { "otherwise" "when" expr block } [ "otherwise" block ]
+repeat_stmt    := "repeat" ( expr | "while" expr | "each" IDENT [ "," IDENT ] "in" expr
+                           | IDENT "in" range_expr ) block
+give_stmt      := "give" [ expr ] NL
+stop_stmt      := "stop" NL
+skip_stmt      := "skip" NL
+announce_stmt  := "announce" expr NL
+fail_stmt      := "fail" expr NL
+attempt_stmt   := "attempt" block { "rescue" IDENT [ ":" qname ] block } [ "always" block ]
+perform_stmt   := "perform" IDENT NL                                   (deprecated)
+expr_stmt      := expr NL                                              (must be a call)
+repeat each k, v in some_map iterates key and value. repeat each i, item in some_list is not supported; use repeat i in 0..list.length().
+4.4 Expressions and precedence
+Comparison and equality operators do not chain: a < b < c is ANI-P013. Assignments are statements, never expressions.
+primary        := INTEGER | REAL | TEXT | "true" | "false" | "none" | IDENT | "self" | "super" "." IDENT
+                | "(" expr ")" | list_lit | map_lit | lambda
+call_args      := "(" [ arg { "," arg } ] ")"
+arg            := [ IDENT ":" ] expr
+record_with    := expr "with" "{" IDENT ":" expr { "," IDENT ":" expr } "}"
+4.5 UI declarations
+app_decl       := "app" IDENT "{" { state_decl | scene_decl | function } "}"
+state_decl     := "state" IDENT [ ":" type ] "<-" expr NL
+scene_decl     := "scene" IDENT "{" { node_decl } "}"
+node_decl      := "node" IDENT [ ":" qname ] "{" { node_member } "}"
+node_member    := IDENT ":" expr ( NL | ";" )
+                | node_decl
+                | "on" IDENT block
+A property line ends at a newline or ;. Legacy files that end every property with ; therefore parse unchanged.
+5. Type system
+5.1 Types
+void does not exist as a name. A function with no -> clause returns nothing and cannot be used as a value.
+5.2 Inference and annotation rules
+Required annotations: every parameter type; every return type when the function returns a value; every field; every record member; every state that is not initialised from a literal.
+Inferred: local let and fixed from the initialiser. let xs <- [1, 2, 3] is list of whole. let xs <- [] is ANI-T016 unless annotated.
+Literal typing: whole literals are whole; they widen to real where a real is required (rule 5.3). Real literals are real.
+Function return inference is not performed. A body that returns a value with no declared type is ANI-T005.
+Lambda parameters may omit types only when the lambda is passed where a function type is expected (list.map(fn(x) { give x * 2 })); otherwise they are required.
+5.3 Assignability and conversion
+Conversions are never implicit between text and other types. "a" + 1 is allowed because + with a text operand is concatenation and converts the other side with to_text (rule 5.4); let s: text <- 1 is an error.
+5.4 Operator typing
+Real NaN compares unequal to everything including itself, as in IEEE.
+5.5 Handling maybe T
+x fallback y gives x if it has a value, else y.
+x.has_value is a truth; x.value returns the payload or fails with ANI-R005.
+Narrowing. Inside the block of when x is not none { ... } (and in the otherwise block of when x is none), a local immutable-in-the-block variable x has type T. A variable is narrowed only if it is a local let/fixed/parameter, is not captured by a lambda that assigns it, and is not assigned inside the block. Anything else is not narrowed and must use .value or fallback.
+when x is none { give } at function level narrows x for the rest of the function when the block always leaves (give, fail, stop, skip).
+5.6 Subtyping, traits and virtual dispatch
+A class has at most one base class and any number of traits. class A is B, T1, T2 means B is the base (the first name must be a class if any is) and T1, T2 are traits.
+A trait may extend other traits (trait X is Y). A trait method with a block is a default method and is inherited by every implementing class unless overridden.
+A concrete class must implement every non-default trait method and every abstract method it inherits, with an identical signature (same parameter names are not required; types and count are). Mismatch is ANI-T013.
+Overriding a base-class method requires the override keyword (ANI-T011 if missing, ANI-T012 if override has nothing to override). Overrides may not change the signature; return types are invariant.
+Cyclic inheritance is ANI-T023.
+5.7 Definite return and reachability
+Every control-flow path of a function with a return type must end in give expr or fail ..., or be proven non-terminating (repeat while true with no stop). Otherwise ANI-T008. Statements after an unconditional give, fail, stop or skip are warning ANI-W002.
+6. Semantics
+6.1 Scopes and name resolution
+Module scope holds define, record, class, trait, enum, fixed and top-level let, plus imports. All module-scope names are visible throughout the module regardless of order (forward references allowed). Module-scope let and fixed are initialised in source order when the module loads; reading one before its initialiser runs is ANI-R014 (compile-time detectable cases are ANI-T027).
+Function scope holds parameters. Block scope holds locals introduced in { }. A local is visible from its declaration to the end of its block.
+Shadowing. Declaring a name already declared in the same scope is ANI-T009. Shadowing an outer scope is allowed with warning ANI-W003.
+Resolution order: local scopes, enclosing function scopes (for lambdas), module scope, from ... use names, module aliases, the always-loaded std.core names.
+A name cannot be used as both a value and a module alias in one file.
+6.2 Evaluation order
+Left to right everywhere: operands, arguments, list and map literal elements, interpolation parts. and and or short-circuit. Argument evaluation completes before the call begins. Named arguments are evaluated in call-site order, not parameter order.
+6.3 Value and reference semantics
+whole, real, truth, enums and vector/matrix/quaternion/color types are values: assignment copies.
+Records are values. let b <- a copies the record (shallow: a field that is a class, list, map or text refers to the same object). Implementations may share storage copy-on-write; the behaviour must be indistinguishable from copying.
+Classes, lists, maps and closures are references. let b <- a makes b and a refer to the same object. Use .copy() on lists and maps for a shallow copy. Classes have no implicit copy.
+Text is immutable; sharing is invisible.
+Parameters are passed by value in the sense above (records copied, references shared). There are no by-reference parameters.
+6.4 Assignment
+target <- expr requires the target to be a declared mutable local, a parameter (allowed; parameters are mutable locals), a field accessed via self or a value, a list or map element, or a module-scope let. Assigning to a fixed is ANI-T019. Compound forms += -= *= /= %= are exactly x <- x op y with x evaluated once.
+Assigning to a record field through an rvalue is an error: make_point().x <- 1 is ANI-T020. Assigning to a field of a record stored in a variable, field or list element is allowed and updates that stored record in place.
+6.5 Control flow
+when conditions must be truth (ANI-T006). There is no truthiness: when count { } is an error.
+repeat n { } requires n: whole; zero or negative runs the body zero times. n is evaluated once.
+repeat while c { } re-evaluates c before each iteration.
+repeat each x in source { } iterates a list (in order), a map (iteration variables k, v; insertion order), a text (one text per code point), or a range. Mutating a list or map’s length during iteration over it is ANI-R009 (changing an element in place is allowed).
+repeat i in a..b { } iterates whole values; the range is evaluated once; i is a fresh immutable binding per iteration.
+stop leaves the innermost loop; skip jumps to its next iteration. Both are errors outside a loop (ANI-P010). They cannot cross a function or lambda boundary.
+give outside a function or lambda is ANI-P009. In start and test blocks, give is not allowed; use exit(code).
+6.6 Strings
+text.length() counts Unicode code points. Indexing and slicing are by code point and are O(n); programs that need random access to large text should use list of text or the host. to_text formats: whole as decimal; real with the shortest representation that round-trips (1.5, 0.1, 1e+21; whole-valued reals print without a trailing .0 only in interpolation of wholes, so to_text(2.0) is 2.0); truth as true/false; none as none; lists as [1, 2, 3]; maps as [a: 1, b: 2]; records and classes by calling describe() if defined, otherwise TypeName { field: value, ... } (classes print TypeName@id).
+6.7 Numeric behaviour
+Integer overflow is a checked error (ANI-R002), not wrap-around. math.wrap_add, math.wrap_mul exist for hash code. Real arithmetic follows IEEE-754 float64; the VM must not use fused multiply-add or x87 extended precision, so results are identical across machines (determinism requirement N1, section 19.3). whole to real widening is exact below 2^53.
+6.8 Closures
+A lambda captures variables by reference to the variable’s storage. Captured locals are boxed at compile time (the checker marks every local that any lambda captures and assigns; read-only captures of effectively-final locals may be captured by value as an optimisation). A fresh loop variable per iteration means repeat i in 0..3 { fns.add(fn() -> whole { give i }) } produces closures returning 0, 1, 2. Captured variables live as long as any closure referencing them.
+6.9 Error semantics
+fail expr raises an error whose message is to_text(expr); fail some_error re-raises an existing error object. Control leaves the current function, running always blocks and releasing locals (refcount decrements, finish blocks) on the way, until an enclosing attempt with a matching rescue is found. rescue e { } matches any error; rescue e: IoError { } matches that class and subclasses; clauses are tried in order. An unmatched error continues to unwind. An uncaught error reaches the host runner, prints the diagnostic and stack trace, and exits with code 1. always blocks run on normal exit, give, stop, skip and error unwind. A fail inside always replaces the in-flight error and records the earlier one in error.cause.
+7. Declarations in detail
+7.1 Functions
+define damage_after_armor(raw: whole, armor: whole <- 0, floor: whole <- 1) -> whole {
+    give math.max(floor, raw - armor)
+}
+Defaults are evaluated at each call, left to right, and may refer to earlier parameters. Parameters with defaults must follow those without.
+Named arguments: damage_after_armor(50, floor: 5). Positional arguments must come first. Unknown name ANI-T025; duplicate or already-supplied name ANI-T026.
+No overloading and no variadics for user functions. Native functions may have overload sets (section 14.5).
+Recursion depth limit 256 frames by default (--max-depth); exceeding is ANI-R006 with a trace of the first and last 8 frames.
+Functions are first-class: let f <- area gives a fn(real, real) -> real. Methods bind as obj.method into closures (the receiver is captured).
+define inside a function body is not allowed; use a lambda.
+7.2 Records
+record Spawn {
+    pos: vec3
+    kind: text <- "grunt"
+    delay: real <- 0.0
+
+    define distance_to(other: vec3) -> real { give (pos - other).length() }
+}
+let a <- Spawn(vec3(1, 0, 0))               # positional, then defaults
+let b <- a with { kind: "boss", delay: 2.5 } # copy with changes
+The constructor is generated: parameters are the members in order, those with defaults optional, usable with named arguments.
+Records have structural equality and no identity. They may contain methods but no make, no inheritance, no traits in 0.3.
+Records may not contain themselves directly (ANI-T028); through a list of or maybe they may.
+7.3 Classes
+abstract class Entity {
+    field name: text
+    field alive: truth <- true
+    private field hp: whole <- 100
+    shared field count: whole <- 0              # one per class, not per instance
+
+    make(name: text) {
+        self.name <- name
+        Entity.count += 1
+    }
+    finish { Entity.count -= 1 }                # runs when the last reference is released
+
+    abstract define update(dt: real)
+    define hurt(amount: whole) {
+        hp <- math.max(0, hp - amount)
+        when hp == 0 { alive <- false }
+    }
+    shared define live_count() -> whole { give count }
+}
+
+class Orc is Entity, Damageable {
+    field rage: real <- 0.0
+    make(name: text) { super.make(name) }
+    override define update(dt: real) { rage += dt }
+}
+Fields are read and written unqualified inside methods when no local or parameter shadows them; self.field always works. private limits access to the declaring class (not subclasses); there is no protected in 0.3.
+make is the constructor; a class has at most one. A derived class’s make must call super.make(...) as its first statement if the base has a make with parameters or any field without a default; otherwise the call is implicit. Fields with defaults are initialised before make runs, in declaration order, base class first. A class with no make gets a generated constructor taking all fields without defaults, in order.
+Using self as a value inside make before all non-default fields are assigned is ANI-T029 (prevents observing a half-built object).
+finish runs deterministically when the reference count reaches zero, on the thread that released it. It must not store self anywhere (no resurrection; the runtime checks and reports ANI-R015) and any error inside it is logged and swallowed. Order: derived finish, then base finish.
+shared members belong to the class: Entity.count, Entity.live_count(). A shared define has no self.
+abstract: an abstract class cannot be constructed (ANI-T030); abstract methods have no body.
+Instance creation: Orc("Grakk") (the class name is called). There is no new.
+Type tests and casts: e is Orc, e as Orc (returns maybe Orc).
+Equality is identity. A class may define define equals(other: Entity) -> truth and define describe() -> text; == does not call equals (use it explicitly), but to_text calls describe.
+Inheritance depth has no hard limit; the style guide advises at most 3 levels. Composition (entity holds components) is the intended pattern for engine code.
+7.4 Traits
+trait Damageable {
+    define hurt(amount: whole)
+    define is_dead() -> truth { give false }       # default method
+}
+Traits have no fields and no constructors. A class may implement many. Trait-typed values (let d: Damageable <- orc) support only the trait’s methods. A trait method call is dispatched through a per-class interface table (section 10.5).
+7.5 Enums
+enum Mood { calm, alert, hunting }                 # values 0, 1, 2
+enum Layer: whole { background <- 10, world <- 20, hud <- 30 }
+Cases are accessed as Mood.calm. Each enum has .name (text), .value (whole), Mood.all() (list of Mood) and Mood.from_name(text) -> maybe Mood. Enums compare by case; they can be map keys. Enums have no payloads in 0.3; payload cases need match ([Reserved]).
+7.6 Extension blocks [Stretch]
+extend Creature { define wave() { ... } } adds methods to a class or record from outside its declaration. Extensions cannot add fields, cannot override, and are visible only where the extending module is imported. A name clash with an existing member is ANI-T009.
+7.7 Weak references
+field owner: weak Entity. Reading a weak value requires .get() which returns maybe Entity; it is none after the target has been destroyed. Assigning a strong reference into a weak field creates a weak reference automatically. weak is allowed on fields, locals and parameters of class type, and in list of weak C / map of K to weak C.
+7.8 Tests
+test "hurt clamps at zero" {
+    let o <- Orc("Grakk")
+    o.hurt(1000)
+    expect(not o.alive)
+}
+test blocks are ignored by anima run and executed by anima test. Each runs in a fresh heap and module state. A failing expect fails the test and continues with the next test.
+8. Modules, projects and capabilities
+8.1 Modules
+One .ani file is one module. Its name is its path relative to the project root with / replaced by . and the extension removed (world/creatures.ani is world.creatures). std.* and engine.* are built in (native) and shadow files of the same name (ANI-M006 warns when a project file has a reserved prefix).
+8.2 Import forms
+use std.math                    # access as math.sqrt(2)
+use std.math as m               # m.sqrt(2)
+use world.creatures             # access as creatures.Orc("x")
+use "world/creatures.ani" as c  # explicit relative path from this file
+from std.math use sqrt, clamp   # bare names sqrt, clamp
+Without as, the alias is the last segment. Alias clash is ANI-T009. A from import may name functions, types and constants. Using an imported name that the module does not export is ANI-M003.
+8.3 Resolution algorithm
+std.* and engine.* resolve to registered native modules (error ANI-M005 if the name is unknown).
+A dotted name resolves against each directory in the project paths list, in order, then the importing file’s directory.
+A string path resolves relative to the importing file.
+If more than one candidate matches, the first wins and a warning ANI-M007 lists the others.
+If none matches: ANI-M001 with the paths tried.
+8.4 Loading and initialisation
+The loader parses and checks each module once, in dependency order. Import cycles are an error (ANI-M002) with the cycle printed. Module bodies (module-scope let and fixed) are initialised once, dependencies first. start exists only in the entry module; start in an imported module is ANI-M008 (use test blocks for module self-checks).
+8.5 Exports
+export is allowed before define, record, class, trait, enum and fixed. A module with no export exports nothing (it may still be the entry module). Re-export: export from world.creatures use Orc [Stretch].
+8.6 The project block
+project "Arena" {
+    version 0.1
+    target native.windows
+    entry "arena/main.ani"           # only meaningful in an anima.project file
+    paths "src", "vendor"
+    runtime direct                   # bytecode is the 0.3 default; `direct` selects the reference evaluator
+    capability time.clock
+    capability cpu.parallel
+    capability gpu.compute
+}
+project blocks live at the top of the entry module. A separate manifest file anima.project containing only a project block (header ANIMA 0.3) is also accepted, so a folder of modules can run with anima run ..
+8.7 Capabilities
+A capability grants a module access to a class of native functionality. Native modules declare which capability each function requires; calling a function whose capability is not declared in the entry project block is a compile-time error (ANI-M004) when statically visible, otherwise runtime ANI-R011.
+Always available with no capability: std.core, std.math, std.json, std.random, std.log, std.test, std.host, and time.Clock (a pure fixed-step accumulator). File capabilities are further restricted to the project root (section 24).
+9. Memory and runtime model
+9.1 Value representation
+A Value is 16 bytes: an 8-byte payload and a tag (type id, flags). Inline payloads: whole, real, truth, enum, none, and small vectors. Heap payloads are pointers to objects with a common header.
+struct ObjHeader { uint32 refcount; uint16 type_id; uint8 flags; uint8 gc_color_unused; uint32 weak_slot; }
+flags includes FROZEN (immutable text), HAS_WEAK (a weak-table entry exists), FINISHING. The header is 16 bytes. Objects are allocated with a size-class pool allocator; large objects use the system allocator. The allocator interface is abstract so an arena allocator can be added for engine data in 0.4.
+9.2 Reference counting
+Assignment and parameter passing increment; scope exit, overwrite and container removal decrement. When the count reaches zero: run the class finish (if any), release fields in reverse declaration order, then free. Release of long chains (a linked list of a million nodes) must not overflow the C++ stack: releases are queued in an explicit worklist and drained iteratively.
+Cycles leak unless broken with weak. The runtime provides --leak-check: at exit it walks the live-object registry and prints every object still alive with its allocation site (function and line), exiting with code 5 if any exist. Debug builds always track allocation sites; release builds track them only under --leak-check.
+9.3 Weak references
+Weak handles index a global table of { object*, generation }. weak_slot in the header records the entry. When an object dies its entry is cleared and its generation bumped, so a stale handle reads as none. Cost: one table lookup per .get().
+9.4 Containers
+text: immutable; stored as length-prefixed UTF-8 with a cached code-point count (computed lazily); literals are interned per module.
+list of T: contiguous. For whole, real, truth, vec2, vec3, vec4, color the storage is a packed array of the native type (no per-element tag), so a list of vec3 is directly uploadable to a GPU buffer. Other element types use a Value array. Growth factor 1.5x.
+map: open-addressing hash table plus a dense insertion-order array; iteration is in insertion order, removal marks a tombstone and compacts on resize. Hashing uses a fixed seeded function (never addresses), so iteration and hashing are deterministic across runs and machines.
+Records are boxed objects with a header and a flat field array; copying allocates.
+Closures hold a function prototype pointer and an array of captured-variable cells.
+9.5 Threads
+The VM and heap are single-threaded: only one thread executes ANIMA code at a time. Native functions may use threads internally (for example parallel_sum) but must not touch ANIMA objects from them. parallel_for with an ANIMA body is [Stretch] and runs each iteration on a separate VM instance with no shared heap, accepting only a fn whose captured variables are all immutable values (checked at compile time); results are collected back on the main thread.
+9.6 Limits
+--deterministic additionally freezes time.now, seeds default randomness to 0, disables log timestamps, and makes any host call tagged non-deterministic an error (ANI-R017).
+10. Bytecode and virtual machine
+10.1 Design
+A stack-based VM with typed instructions. Because the checker proves types, the compiler emits ADD_W (whole) or ADD_R (real) rather than a generic add, so the interpreter loop does no tag dispatch for arithmetic. Each function compiles to a chunk: code bytes, a constant pool, a line table (instruction offset to line and column), an exception-handler table, and metadata (parameter count, local slot count, upvalue descriptors). Instructions are one opcode byte followed by 0 to 3 operands of 1, 2 or 4 bytes (little-endian). The interpreter is a switch loop; computed-goto dispatch is allowed under GCC/Clang only behind a macro, and the MSVC build must use the plain switch.
+A call frame holds the chunk pointer, instruction pointer, base slot index in the shared value stack, and the closure. The value stack grows to the depth limit times the maximum slots per function and is allocated once. Module-scope variables live in a per-module global array indexed by slot.
+10.2 Instruction set
+Roughly 85 opcodes. The exact encoding is frozen when milestone C2 completes; anima dis prints it, and the disassembly of every conformance test is stored as a golden file so accidental code-generation changes are caught in review.
+10.3 Calling convention
+The caller pushes the callee value then arguments left to right; CALL n creates a frame whose locals begin at the first argument. Default arguments and named arguments are resolved at compile time into the positional order (defaults become inline code at the call site). A method call passes the receiver as local 0. RET/RET_V pop the frame, release locals in reverse order, and push the result.
+10.4 Exceptions
+The handler table maps instruction ranges to a handler offset and the scope depth to unwind to. THROW looks up the innermost handler covering the current instruction; if none exists in the frame, it unwinds frames (running always blocks, which the compiler emits as inline handlers marked ALWAYS). Stack traces are built from the frame chain and line tables at the moment of the throw and attached to the error object.
+10.5 Method dispatch
+Class methods: each class has a vtable (array of function pointers). CALL_M slot indexes it with the receiver’s class. A derived class copies the base table and replaces overridden slots.
+Trait methods: each class has an interface table, a small sorted array of { trait_id, method_slots[] }. CALL_I id finds the trait entry by binary search on the receiver’s class. A one-entry inline cache keyed on class pointer is added in C8.
+Shared (static) functions are resolved at compile time to a direct call.
+10.6 Bytecode cache [Stretch]
+anima compile file.ani -o file.anic writes a versioned binary of all chunks. The format has a magic number, a bytecode version, a hash of the source and imported module hashes. It exists for load-time speed and is never an ABI promise.
+11. Compiler pipeline
+source text
+  -> Lexer         tokens with spans
+  -> Parser        AST (arena allocated, immutable after parse)
+  -> Checker       symbol tables, types, narrowing, lint warnings -> annotated AST
+  -> Compiler      bytecode chunks, constant pool, line tables
+  -> VM            execution
+11.1 Lexer
+Pull-based, one token lookahead plus checkpoint. API sketch:
+class Lexer {
+public:
+    Lexer(const SourceFile& file, Diagnostics& diag);
+    const Token& peek();
+    Token next();
+    Checkpoint mark();
+    void rewind(Checkpoint);
+};
+11.2 Parser
+Recursive descent for items and statements; precedence climbing for expressions using the table in section 4.4. Error recovery: on a syntax error the parser records a diagnostic and synchronises by skipping to the next newline-terminated statement start or a closing } at the current depth, then continues, so one run reports many errors (maximum 20 per file, then “too many errors”). Nodes produced during recovery are marked Invalid and ignored by later phases so that one mistake does not cascade.
+AST node catalogue (all nodes carry a source span): Module, Project, Use, FromUse, Fixed, Function, Param, Record, Class, Field, Make, Finish, Trait, Enum, Extend, App, State, Scene, Node, OnEvent, Start, Test, Block, Let, Assign, CompoundAssign, When, RepeatCount, RepeatWhile, RepeatEach, RepeatRange, Give, Stop, Skip, Announce, Fail, Attempt, Rescue, ExprStmt, Literal(whole/real/text/truth/none), TextInterp, ListLit, MapLit, Range, Ident, Member, Index, Slice, Call, NamedArg, Lambda, Unary, Binary, Is, As, With, Fallback, Self, Super.
+11.3 Checker passes
+Declare: walk module items, create symbols for every module-level name (functions, types, constants), build the import graph and load dependencies.
+Resolve types: resolve every annotation to a type; detect inheritance cycles, record layout cycles, duplicate names.
+Check signatures: override and trait conformance, abstract completeness, default parameter ordering, make rules, capability references.
+Check bodies: scopes, inference, assignability, operator typing, narrowing, definite return, loop/give context, closure capture analysis (marks boxed locals), constant folding of fixed.
+Lint: unused variables, imports and parameters, unreachable code, shadowing, deprecated constructs, let that could be fixed.
+Output is an annotated AST where every expression has a resolved type and every identifier a resolved symbol, plus a list of diagnostics. anima check stops here and never runs code.
+11.4 Compiler
+One pass over the annotated AST per function. Responsibilities: select typed opcodes; emit boxed-variable access for captured locals; lower repeat each to iterator opcodes; lower attempt/rescue/always to handler-table entries; inline default arguments and reorder named arguments; fold constant expressions and fixed values; emit line-table entries per statement and per call. The compiler must not fail on a checked AST; any failure is an internal error (ANI-I001) that prints the offending node’s span.
+11.5 Source spans and snippets
+A SourceMap owns file text and a line-start table so a byte offset converts to line and column in O(log n). Diagnostics print the source line plus carets under the span; a multi-line span prints its first line.
+12. Diagnostics and error model
+12.1 Format
+error[ANI-T002]: type mismatch
+  --> src/creatures.ani:14:26
+   |
+14 |     let hp: whole <- 1.5
+   |                      ^^^ expected `whole`, found `real`
+   = help: use to_whole(1.5) to truncate, or math.round(1.5)
+Warnings use warning[ANI-W003]. --format json prints one JSON object per diagnostic (code, severity, file, line, column, end_line, end_column, message, help) for editors and CI. Colour is used only when stderr is a terminal. --warnings-as-errors is supported. Help text is mandatory for every error with a likely fix; a near-miss name (edit distance up to 2) always yields “did you mean x?”.
+12.2 Exit codes
+0 success; 1 uncaught runtime error or failed test; 2 compile-time errors (lexical, parse, type, module); 3 command-line usage error; 4 internal error (a bug; print “please report” and the code); 5 leak check failed.
+12.3 Error catalogue (initial)
+12.4 Runtime error objects
+class error { field message: text  field code: text  field trace: list of text  field cause: maybe error }
+Built-in subclasses: ArithmeticError (R001, R002), RangeError (R003, R004), NoneError (R005), LimitError (R006 to R008, R016), IoError (R013), ParseError (JSON and number parsing), NativeError (R011), Failure (R010, raised by fail). Users may subclass error with class MyError is error { ... }.
+13. Standard library
+All names below are available after use std.<module> (or from std.<module> use ...) except std.core, which is always in scope. Native overload sets are written once with T: whole | real. Methods are shown as type.method(...).
+13.1 std.core (always loaded)
+Functions
+text methods: length() -> whole, is_empty() -> truth, upper(), lower(), trim(), trim_start(), trim_end(), contains(s: text) -> truth, starts_with(s), ends_with(s), find(s: text) -> maybe whole, replace(old: text, new: text) -> text, split(sep: text) -> list of text, lines() -> list of text, slice(from: whole, to: whole) -> text, char_at(i: whole) -> text, pad_left(width: whole, fill: text <- " ") -> text, pad_right(...), times(n: whole) -> text, to_bytes() -> list of whole.
+list of T methods: length(), is_empty(), add(v: T), insert(i: whole, v: T), remove_at(i: whole) -> T, remove(v: T) -> truth, clear(), contains(v: T) -> truth, find(v: T) -> maybe whole, first() -> maybe T, last() -> maybe T, pop() -> maybe T, slice(from, to) -> list of T, copy() -> list of T, reverse(), sort() (T is whole, real or text), sort_by(f: fn(T, T) -> whole), map(f: fn(T) -> U) -> list of U, filter(f: fn(T) -> truth), reduce(init: U, f: fn(U, T) -> U) -> U, any(f), all(f), sum() (numeric), join(sep: text) -> text (for list of text), extend(other: list of T). Indexing xs[i] and xs[i] <- v; slices xs[1..3] return a new list.
+map of K to V methods: length(), has(k) -> truth, get(k) -> maybe V, set(k, v), remove(k) -> truth, keys() -> list of K, values() -> list of V, clear(), copy(). m[k] reads (R004 if missing), m[k] <- v writes.
+maybe T: .has_value, .value, and the fallback operator.
+13.2 std.math
+Constants: PI, TAU, E, INF, NAN.
+Functions: abs(x: T) -> T, min(a: T, b: T) -> T, max(a: T, b: T) -> T, clamp(v: T, lo: T, hi: T) -> T, sign(x: T) -> whole, sqrt(x: real) -> real, pow(b: real, e: real) -> real, exp, ln, log10, floor(x: real) -> whole, ceil, round (half away from zero), trunc, sin cos tan asin acos atan, atan2(y, x), radians(deg), degrees(rad), lerp(a: real, b: real, t: real) -> real, smoothstep(e0, e1, x), approx(a: real, b: real, eps: real <- 1e-9) -> truth, is_nan(x) -> truth, wrap(x: whole, lo: whole, hi: whole) -> whole, wrap_add(a: whole, b: whole) -> whole, wrap_mul(a, b).
+vec2, vec3, vec4 (float32 storage): constructors vec3(x, y, z), vec3(v: real) (splat); fields x y z w; operators per section 5.4; methods length(), length_sq(), normalize() -> vecN, dot(o) -> real, cross(o) -> vec3, distance(o), lerp(o, t), reflect(n), min(o), max(o), abs(), to_list() -> list of real.
+mat4: mat4.identity(), mat4.translate(v: vec3), mat4.scale(v: vec3), mat4.rotate(q: quat), mat4.perspective(fov_y: real, aspect: real, near: real, far: real), mat4.ortho(l, r, b, t, n, f), mat4.look_at(eye, target, up); methods transpose(), inverse() -> maybe mat4, mul_point(v: vec3) -> vec3, mul_dir(v: vec3) -> vec3; operator *. Column-major, right-handed, depth 0 to 1 (Direct3D convention).
+quat: quat.identity(), quat.from_axis_angle(axis: vec3, angle: real), quat.from_euler(x, y, z), methods normalize(), conjugate(), slerp(o, t), rotate(v: vec3) -> vec3, to_euler() -> vec3, operator *.
+color: straight (non-premultiplied) linear RGBA in 0..1. color.rgb(r, g, b), color.rgba(r, g, b, a), color.hex(s: text) -> maybe color (#rgb, #rrggbb, #rrggbbaa), methods with_alpha(a), lerp(o, t), to_hex() -> text.
+13.3 std.io (capabilities io.read, io.write, io.env)
+read_text(path) -> text, read_lines(path) -> list of text, write_text(path, content), append_text(path, content), exists(path) -> truth, is_directory(path) -> truth, list_dir(path) -> list of text (sorted), make_dir(path), remove_file(path), args() -> list of text, env(name) -> maybe text, cwd() -> text. Paths use / on every platform and resolve against the project root; .. that would leave it is IoError (section 24). Failures raise IoError with the OS message.
+13.4 std.json
+json.parse(s: text) -> value (raises ParseError with line and column), json.write(v: value, pretty: truth <- false) -> text. A value obtained from JSON supports as_text() -> maybe text, as_whole(), as_real(), as_truth(), as_list() -> maybe list of value, as_map() -> maybe map of text to value, is_null() -> truth, get(key: text) -> maybe value, at(i: whole) -> maybe value. Numbers parse as whole when they have no fraction or exponent and fit in int64, otherwise real. Lists, maps, text, whole, real, truth and none convert to JSON; records convert to objects; classes convert only if they define to_json() -> value.
+13.5 std.time
+Clock(step: real) is a fixed-timestep accumulator (no capability needed): advance(elapsed: real) -> whole returns the number of whole steps to simulate (capped at max_steps, default 8, to avoid the spiral of death), step -> real, ticks -> whole (total steps), alpha -> real (leftover fraction for render interpolation), reset(). now() -> real is monotonic seconds, unix_ms() -> whole, sleep(seconds: real), and Stopwatch() with start(), elapsed() -> real, reset() require time.clock.
+13.6 std.random
+Random(seed: whole) uses PCG-XSH-RR 64/32 with a fully specified seeding procedure so sequences are identical on every platform. Methods: next_real() -> real in [0, 1), next_whole(lo: whole, hi: whole) -> whole (inclusive lo, exclusive hi, rejection sampled, no modulo bias), next_truth() -> truth, gaussian() -> real, pick(xs: list of T) -> maybe T, shuffle(xs: list of T) (Fisher-Yates), next_vec2(), next_vec3() (unit-box), fork() -> Random (independent stream). There is no global generator; each program creates its own, which keeps tests reproducible.
+13.7 std.log
+debug(msg), info(msg), warn(msg), error(msg) write to stderr as [LEVEL] message (timestamps omitted in --deterministic). set_level(level: LogLevel) where enum LogLevel { debug, info, warn, error, off }. Levels below the threshold are not evaluated when the argument is a lambda: log.debug(fn() -> text { give expensive() }) [Stretch].
+13.8 std.test
+expect(c: truth, message: text <- ""), expect_equal(actual: value, expected: value) (structural, prints both on failure), expect_near(a: real, b: real, eps: real <- 1e-9), expect_fail(body: fn(), kind: text <- "") (passes if body raises, optionally a given error class name), skip_test(reason: text). anima test reports passed, failed and skipped counts, prints failures with source lines, and exits 1 on any failure.
+13.9 std.cpu (capability cpu.parallel)
+cores() -> whole (alias cpu.logical_cores() retained), parallel_sum(n: whole) -> whole (sum of 1 to n using native worker threads; 0 <= n <= 5_000_000 as in 0.2), parallel_for(count: whole, body: fn(whole)) [Stretch] (section 9.5).
+13.10 std.gpu (capabilities gpu.compute, gpu.dxr_query)
+Unchanged from 0.2, moved into the module system with proper types: available() -> truth, adapter() -> text, backend() -> text, vram_mb() -> whole, dxr_supported() -> truth, squares(n: whole) -> list of real (1 <= n <= 65_536). On non-Windows builds available() is false and the others return the documented placeholder values. No new GPU functionality is added in 0.3.
+13.11 std.host and std.ui
+host.platform() -> text. std.ui is specified in section 15 (scene tree types, go, chime, dump, fire).
+13.12 Library design rules
+Every function has a documented signature in the module’s .ani stub file (checked in, used for docs generation and for checker tests) and a registered native or ANIMA implementation; a test enforces that the two agree.
+Functions that can fail raise a typed error subclass; functions that “may not find” return maybe.
+No function mutates its arguments unless its name or the section above says so (sort, reverse, add and so on mutate; sorted copies [Reserved]).
+Names are snake_case, short, and spelled out (length, not len).
+No global mutable state in the library; randomness and clocks are objects.
+14. C++ host API
+The host API is the contract between the C++ engine and ANIMA. It is how every future engine feature (windowing, renderer, physics, audio, assets) becomes available to scripts, so it is the most important interface in 0.3 to get right. It is source-level stable within 0.3.x and is not an ABI promise.
+14.1 Principles
+Typed. Every native function, method and class declares ANIMA types. The checker uses them, so a wrong call from ANIMA is a compile error, not a crash.
+Capability-gated. Every native function names the capability it requires (or none).
+No raw access. ANIMA never receives pointers, OS handles or unbounded memory. Native objects are opaque, refcounted ANIMA objects with a finaliser.
+Errors are values. A native function reports failure by throwing anima::NativeError (or a subclass mapped to a built-in error class); the VM converts it into a catchable ANIMA error. C++ exceptions never propagate through the VM loop.
+Single-threaded contract. Native code is called on the VM thread and may not call back into the VM from another thread.
+14.2 Core types
+namespace anima {
+  enum class Cap { None, CpuParallel, GpuCompute, GpuDxrQuery,
+                   IoRead, IoWrite, IoEnv, TimeClock, UiScene };
+  struct Type;                       // type descriptor, built with Type::whole(), Type::list(t), ...
+  class  Value;                      // 16-byte tagged value
+  class  Args;                       // typed accessor for a call's arguments
+  class  Host;                       // owns modules, classes, capabilities
+  class  ModuleBuilder;              // fluent registration
+  class  ClassBuilder;               // fluent native-class registration
+  using  NativeFn = std::function<Value(Args&)>;
+}
+Args exposes whole(i), real(i), truth(i), text(i) (a std::string_view valid for the call), list(i), obj<T>(i) for native class instances, fn(i) for callbacks, and has(i) for defaulted parameters.
+14.3 Registering a module
+anima::Host host;
+host.module("std.math")
+    .fn("sqrt").takes({Type::real()}).returns(Type::real()).cap(Cap::None)
+        .impl([](Args& a) { return Value(std::sqrt(a.real(0))); })
+    .fn("clamp").overload({Type::whole(), Type::whole(), Type::whole()}, Type::whole(), ClampWhole)
+                .overload({Type::real(),  Type::real(),  Type::real()},  Type::real(),  ClampReal);
+14.4 Registering a native class
+host.module("engine.window")
+    .cls("Window")
+        .make({Type::text(), Type::whole(), Type::whole()}, [](Args& a) {
+            return NativeObject::create<WindowImpl>(a.text(0), a.whole(1), a.whole(2));
+        })
+        .method("close").returns(Type::none()).impl([](Args& a) { a.self<WindowImpl>().close(); })
+        .method("size").returns(Type::of("vec2")).impl([](Args& a) { /* ... */ })
+        .field_ro("title", Type::text(), [](WindowImpl& w) { return Value(w.title()); })
+        .finalizer([](WindowImpl& w) { w.destroy(); });
+NativeObject instances participate in reference counting; the finaliser runs when the last ANIMA reference is released (same rules as finish, section 7.3). Native classes may declare is traits that ANIMA already defines, so engine objects can satisfy ANIMA interfaces.
+14.5 Overloads and generics
+Native functions may have overload sets resolved by the checker on argument types at compile time (exact match first, then with whole to real widening; ambiguity is ANI-T004). The built-in generic list and map methods (map, filter, reduce, sort_by) are typed by the checker through a small internal template mechanism that is not exposed to user code or to the host API in 0.3. Host modules that need generic behaviour use value.
+14.6 Errors, capabilities and limits
+throw NativeError("message") becomes NativeError; throw IoError(...), RangeError(...) and ParseError(...) map to their ANIMA classes.
+The VM verifies at load time that every capability a referenced native needs is declared in the project block (section 8.7). The check also runs at call time for dynamic paths.
+Host::set_limits({max_native_alloc_mb, max_text_bytes, ...}) bounds native allocations made on behalf of scripts.
+14.7 Ownership and lifetimes
+Values passed in are borrowed for the call; to keep one, call Value::retain() and store it (the host must release() it).
+Returned objects are owned by the VM.
+Callbacks: Args::fn(i) returns a Callable that can be stored and invoked later (callable.invoke({args})) on the VM thread. The host must release callables before shutdown; --leak-check reports leaked ones.
+14.8 Porting the 0.2 built-ins
+The calls remain reachable with their 0.2 dotted spelling when the matching module is imported without an alias (use std.cpu then cpu.logical_cores()), so migrated programs keep working.
+14.9 Testing native modules
+Every native module ships with a stub file (std/math.ani.stub) listing its ANIMA signatures. A unit test loads each stub and verifies that the registered native types match exactly; a conformance test per module exercises every function including every error path. Native modules must be tested under ASan and UBSan on the Linux build.
+14.10 Stability rules
+Adding functions is a minor change. Changing a signature, a capability or an error class is breaking and requires a spec revision and a deprecation period of one minor version.
+15. Unified UI system
+15.1 Model
+UI in ANIMA is ordinary language, not a separate dialect. app, scene and node are declarations that build a typed scene tree in memory. In 0.3 that tree can be built, queried, driven by events, bound to state and dumped as text. Drawing it on screen natively is a later milestone (0.5). The browser JavaScript runtime continues to render legacy .anima files until it is retired; new features are not added to it.
+15.2 Declarations
+app Hud {
+    state score: whole <- 0
+    state title <- "Score"              # inferred as text
+
+    define bump(n: whole) { score += n }
+
+    scene Main {
+        node Screen: Column {
+            gap: 18
+            fill: "#070912"
+            node Label: Heading { text: "{title}: {score}"; scale: 40; motion: Reveal }
+            node Hit: Button {
+                text: "Hit"
+                on click { bump(1) }
+            }
+        }
+    }
+    scene Settings { ... }
+}
+app may contain state, define (app-local functions), and one or more scene blocks; the first scene is the initial scene unless the entry module’s start navigates elsewhere.
+node Name: Type { ... }: Name is unique within its scene (ANI-T009); Type is a node type from std.ui or a user class that extends ui.Node; omitting : Type uses the generic Box.
+A property line is name: expression; the expression may reference state names, constants, and functions. A property whose expression reads state is bound (15.6).
+Child node blocks nest. on event { ... } attaches a lambda body to an event on that node.
+state is only legal inside app; assignments to state (score <- score + 1) schedule re-evaluation of bound properties at the end of the current event.
+Programs may have both an app and a start. If both exist, start runs and may call ui.run(Hud); if only app exists, the runner builds the first scene and (in 0.3) dumps it or runs an event script (section 16.5).
+15.3 Node types and property catalogue
+The initial catalogue is taken from the legacy samples and docs and must be completed from the full legacy runtime in WP F1. Unknown legacy properties found there are added to the registry or reported to the owner before the migrator is declared complete.
+Node types: Box (default), Column, Row (shorthand for Box with flow preset), Heading, Paragraph, Small, Button, Canvas. (canvas in legacy files is migrated to Canvas.)
+Types: Length is real (pixels) or a CSS-length text; Spacing is real or a one-to-four-value text; Paint is Color or gradient text; Flow is column(...) / row(...) with named options (cross, route, gap, wrap); Align, Place, TextCase are enums. A table of exact accepted forms is generated from the registry (anima ui-catalog) and checked in as the source of truth.
+15.4 Validated literals
+For UI value types, a text literal is accepted where the type is Color, Length, Spacing, Paint, Flow, or an enum, and is parsed and validated at compile time. ink: "#75ddff" is valid; ink: "#75ddzz" is ANI-T031 with the location of the bad character. This keeps every legacy file valid without forcing a new literal syntax, and turns typos that the browser runtime ignored silently into errors. Non-literal text is not implicitly converted; use color.hex(...).
+15.5 Events and actions
+Events: click, press, hover, focus (from the legacy set; the registry may add more). Handler bodies are lambdas with access to app state and functions. Built-in UI functions from std.ui:
+Browser-only GPU bridge calls in legacy files (gpu.setRayTracing, gpu.roomRaytrace, gpu.resetRayTracing, gpu.stop) are not in std.gpu. The migrator converts them to calls of legacy.browser_call("name", args) which type-checks but raises ANI-R011 outside the browser runtime, and prints a migration note. They are removed when native equivalents exist.
+15.6 State and binding
+Property expressions are compiled into binding functions that list the state names they read. Assigning a state variable marks dependent bindings dirty; at the end of the event handler the runtime re-evaluates dirty bindings in tree order and records changed properties (a changeset). Rules: binding functions must be pure (no calls to functions with side effects; the checker enforces this by allowing only pure built-ins, pure user functions marked by inference, and state reads); a binding that reads state it also writes is ANI-T032; evaluation cycles are impossible by that rule. The first rendering backend (0.5) consumes changesets; in 0.3 they are asserted in tests.
+15.7 Scene dump format
+app Hud
+  state score = 0
+  scene Main (initial)
+    Column Screen { gap: 18, fill: #070912 }
+      Heading Label { text: "Score: 0", scale: 40, motion: Reveal }
+      Button Hit { text: "Hit" } on click
+The dump is deterministic: properties are listed in declaration order with resolved values; colours normalise to lowercase #rrggbb. Dumps are the golden files for UI tests.
+15.8 Legacy runtime policy
+The legacy browser runtime and the AnimaNative D3D12 room demo continue to ship. They are not extended. The room demo is re-expressed as a .ani app with a Canvas node and a native engine.room module in 0.5.
+16. Command-line tools and REPL
+16.1 Commands
+16.2 Common flags
+--format text|json, --warnings-as-errors, --max-depth N, --step-limit N, --memory-limit MB, --deterministic, --leak-check, --compat 0.2, --cap name (grant a capability for this run, adding to the project block), --no-color, --trace (print each instruction; debug builds only).
+16.3 REPL [Stretch]
+Single-line and multi-line input (a line ending with an open { continues). Declarations persist across lines; expressions print their value. Commands: :help, :type expr, :dis expr, :load file, :reset, :quit. The REPL uses the same checker, so type errors appear immediately.
+16.4 Exit codes
+As in section 12.2.
+16.5 Headless UI runs
+anima scene app.ani --fire Main/Hit:click --fire Main/Hit:click builds the first scene, fires two events, and dumps the final tree. This is the baseline for UI tests until a native renderer exists.
+17. Repository, build and engineering standards
+17.1 Layout
+ANIMA_Studio.sln        Visual Studio 2022 solution
+CMakeLists.txt          portable build (Linux CI, sanitizers)
+AnimaCore/              static lib: lexer, parser, ast, checker,
+                        compiler, vm, runtime  (src/<stage>/)
+AnimaStd/               static lib: stdlib natives and .ani stubs
+                        (src/<module>.cpp, stubs/<module>.ani.stub)
+AnimaHost/              host API headers, Windows natives (D3D12)
+AnimaCLI/               anima.exe
+AnimaTests/             C++ unit tests (own mini framework) and
+                        the conformance runner
+  conformance/ lexer/ parser/ checker/ vm/ stdlib/
+  ui/ migrate/ errors/ bench/
+AnimaDocs/              native docs app (existing), 0.3 content
+AnimaNative/            legacy D3D12 room renderer (unchanged)
+ReferenceEvaluator/     frozen 0.2 evaluator for differential tests
+docs/                   this spec, language reference, style guide,
+                        decision log
+17.2 Build configuration
+C++20, MSVC v143 and GCC 13 or newer, Clang 17 or newer. /W4 /permissive- /Zc:__cplusplus on MSVC; -Wall -Wextra -Wpedantic -Wconversion elsewhere; warnings are errors in CI and in Release.
+Configurations: Debug (asserts, allocation-site tracking, instruction trace), Release (/O2 or -O2, no RTTI, exceptions on), Sanitize (Linux: -fsanitize=address,undefined).
+Dependency policy: no third-party code in 0.3 (consistent with the in-house position of the project). The mini test framework and the PCG generator are written in-tree.
+The solution must build from a clean clone with the “Desktop development with C++” workload only.
+17.3 Coding standards
+snake_case functions and variables, PascalCase types, kConstant, trailing underscore for private members; one class per header where practical.
+No using namespace in headers; no macros except the dispatch macro and assert macros.
+Ownership by std::unique_ptr and arenas; raw owning pointers are forbidden outside the VM heap.
+Every public function documents preconditions; every switch over an enum has no default (so a new enumerator is a compile warning).
+AST nodes are arena-allocated and immutable after parsing; the checker stores results in side tables or annotation fields, never by mutating structure.
+17.4 Review and merge checklist
+Spec section updated or confirmed unchanged. 2. Tests added: at least one passing and one failing conformance program per behaviour. 3. Diagnostics carry codes and help. 4. No new warnings. 5. Benchmarks not regressed beyond 5 percent. 6. Docs examples still run (the docs app’s samples are part of the test suite).
+18. Testing strategy
+18.1 Layers
+18.2 Conformance file format
+For name.ani the runner reads, if present:
+name.expected: exact stdout; absence means “no output”.
+name.error: the first line is the diagnostic code; the second is line:column; the remainder is the message that must appear. Used for compile-time errors (exit code 2) and runtime errors (exit code 1).
+name.args and name.stdin for command-line and input.
+A header comment # flags: --deterministic --cap io.read adds flags.
+18.3 Targets by milestone
+18.4 Continuous gate
+One script (Run-All-Tests.bat on Windows, run_all_tests.sh on Linux) builds, runs unit, conformance, error, differential, UI, migration tests, then a short fuzz and the benchmarks, and prints a one-line summary. The milestone is not complete until the script is green on both Windows MSVC and Linux g++. A GitHub Actions or equivalent job runs the Linux half automatically if a repository host is used.
+19. Performance and determinism
+19.1 Benchmarks and targets
+Baselines for new rows are recorded in C8 on the Windows and Linux reference machines; a benchmark regression of more than 5 percent fails the gate.
+19.2 Optimisation backlog (after correctness)
+Superinstructions for common pairs (LOAD_L+LOAD_L+ADD_W); inline caches for CALL_M and CALL_I; integer loop specialisation for repeat i in a..b; avoiding record copies through copy-on-write; text interning of repeated constants; computed goto on GCC/Clang. Each optimisation needs a benchmark that demonstrates it.
+19.3 Determinism requirements
+N1 Real arithmetic identical across machines (no FMA contraction: compile with /fp:precise and -ffp-contract=off). N2 Map iteration is insertion order. N3 Hashing never depends on addresses. N4 Random sequences defined by the PCG specification. N5 to_text of reals uses a specified shortest round-trip algorithm (Ryu or Grisu in-tree). N6 Sorting is stable. N7 No behaviour depends on locale; the C++ runtime runs in the “C” locale.
+20. Migration and compatibility
+20.1 Breaking changes from 0.2 to 0.3
+20.2 Rewriting .ani 0.2 files
+The migrator parses with the 0.2 grammar and rewrites with these rules: (1) Replace the header. (2) Track names declared by let in file order; a later let of an already-declared name becomes an assignment x <- .... (3) A name first assigned inside a define and read in start (or another define) is hoisted to a module-scope let with a default of 0, "", false or [] chosen from its annotation or first value, and a migration note. (4) perform x becomes x(). (5) series annotations become list of real. (6) Add capability lines to the project block for each native module used. The output is checked with the 0.3 checker before it is written; if checking fails the report lists the remaining errors and the original is untouched.
+20.3 Rewriting .anima (legacy UI) files
+The migrator also emits a migration report (file.migration.md) listing every rewrite, every note, and every unknown property or node type.
+20.4 Compatibility mode
+--compat 0.2 runs a 0.2 file through the reference evaluator unchanged (including its semantics: double whole, global scope, no static checking). It exists for one release as a safety net and prints a deprecation banner. It is removed in 0.4.
+20.5 Deprecation policy
+A feature is deprecated for one minor version with a warning code and a documented replacement, then removed. Reserved words and the grammar are frozen after milestone B except by a written decision (section 26.1).
+21. Milestones and work packages
+Milestones run in order. Each ends with a working build on Windows (MSVC) and Linux (g++), all tests green, the spec updated, and a tagged preview release. Work packages (WP) are numbered by milestone. Effort is in focused engineer-weeks (one engineer working on this and nothing else); see 21.8 for how to read it.
+21.1 Overview
+21.2 Milestone 0.3a: front end
+21.3 Milestone 0.3b: semantics and checker
+21.4 Milestone 0.3c: bytecode VM
+21.5 Milestone 0.3d: objects
+21.6 Milestone 0.3e: modules, library, host API
+21.7 Milestone 0.3f: unification
+21.8 Reading the effort numbers
+The totals are 3 + 5 + 4 + 4 + 6 + 4 = 26 focused engineer-weeks, roughly six months for one person doing nothing else. For a studio that also ships games, assume the language work gets a fraction of the week; planning on 8 to 12 months of calendar time is realistic for the full scope, and 0.3a to 0.3c (12 weeks of effort) is the minimum that makes ANIMA a useful, fast, checked language. These are planning estimates, not commitments; re-estimate at the end of each milestone from measured velocity. The riskiest packages (B6 checker, C6 error flow, E3 host API, F6 migrator) carry the most uncertainty and should be started with a one-day spike.
+21.9 Critical path and parallel work
+Critical path: A2 to A5 to B1 to B6 to B10 to C1 to C3 to C10 to D2 to D3 to D4 to E1 to E3 to F2 to F6 to F10. Work that can run alongside: F1 (legacy inventory) from week 1; A6 and A7 with A2; E5 to E8 as soon as E3 exists; documentation drafts from B10 onward; benchmark scaffolding from C2. If two engineers are available, one owns the compiler pipeline (A, B, C) and the other starts the library, host API and legacy inventory once A5 lands.
+21.10 Definition of done (every WP)
+Behaviour matches this specification, or the specification was revised with a logged decision. 2. Passing and failing tests committed. 3. Diagnostics have codes and help. 4. Documentation (reference page or example) updated. 5. Gate green on Windows and Linux. 6. No new warnings, no leaks, no sanitizer reports.
+22. Scope: must, stretch, not in 0.3
+Rule for cutting: if a milestone slips, cut stretch items in the order above. Never cut tests, diagnostics codes, the migrators, or the leak checker.
+23. The path to a game engine
+23.1 Division of labour
+The C++ engine core owns renderer, physics, audio, input, windowing, asset loading, entity storage and memory arenas. ANIMA owns gameplay logic, tools, UI, content definitions and configuration, scene scripting, and automation. This is the Lua/C# model and is the realistic route for a two-person studio. Writing the whole engine in ANIMA would require an AOT compiler, raw memory and pointer types, and a much larger safety story; it is not a goal.
+23.2 What 0.3 puts in place
+23.3 Roadmap after 0.3
+23.4 Hot reload design note
+Because modules are compiled to bytecode and objects carry class ids, reloading a module can replace function bodies in place. The rule for 0.4: functions reload, data does not (existing objects keep their old layout; fields added or removed require a restart, reported explicitly). The 0.3 requirement is only that the loader keeps module state in a replaceable table and never caches code pointers across calls.
+23.5 Reserved hooks
+Keywords reserved now (3.3): async await case generic handle kernel match shader task unsafe where yield native switch. Reserved syntax: ?, match, non-ASCII identifiers, export from. Reserved library prefixes: engine.*, gpu.*.
+24. Security and sandboxing
+ANIMA programs are treated as untrusted by default, because scripts will be shared and loaded by tools.
+Capabilities (8.7) gate every host feature; there is no eval, no dynamic loading of native code, and no reflection that can reach the host.
+Filesystem: io.* paths resolve under the project root; absolute paths, drive letters, UNC paths and any .. that leaves the root are rejected with IoError. Symbolic links that point outside are rejected. An explicit capability io.any is not provided in 0.3.
+Resource limits (9.6) make runaway scripts stoppable; hosts embedding ANIMA should set them.
+Memory safety: no raw pointers in the language; all indexing is bounds-checked; integer overflow is checked; the VM validates bytecode loaded from the cache (stretch) before running it.
+Native modules are registered in C++ by the embedding host only; scripts cannot register them.
+Supply chain: no third-party code in 0.3; the build is reproducible from a clean clone.
+Fuzzing (18.1) covers all untrusted-input surfaces: lexer, parser, checker, JSON parser, migrator.
+25. Risk register
+26. Governance and open items
+26.1 Change control
+After B10, any change to grammar, reserved words, type rules or the host API requires: (1) a written note in the decision log with the reason and alternatives; (2) a spec revision; (3) updated tests in the same change; (4) sign-off by the language owner and one reviewer. Bug-fix clarifications that do not change behaviour need only a spec edit.
+26.2 Decision log
+26.3 Open questions to resolve before the 0.3b freeze
+Spelling: are make (constructor), finish (destructor), give (return), fallback (maybe default) and weak the final words? They are readable and unused by other languages’ common keywords, but they are taste calls.
+Whole division: / between wholes truncates (matches C++, C# and Java). The alternative is always-real division plus a separate integer operator. This spec chooses truncation; confirm.
+Legacy source of truth: WP F1 needs the full legacy JS runtime (the browser Anima.parse/mount implementation) and the docs app’s structural checker. Only the shipped samples and docs were available when this spec was written. Confirm where the complete runtime source lives.
+Editor support: is a TextMate/VS Code grammar for .ani wanted in 0.3 (listed as stretch)?
+Platforms: Windows is the primary target and the primary release platform; Linux is a CI and tooling platform. Is macOS in scope for the CLI? (Assumed no.)
+Naming of the UI Box: keep the legacy “node with no type” as Box, or keep it untyped?
+Style guide: adopt the conventions in 3.3 and 17.3 as the official style guide (assumed yes).
+Appendix A. Example programs
+A.1 Functions and recursion
+ANIMA 0.3
+
+define fib(n: whole) -> whole {
+    when n < 2 { give n }
+    give fib(n - 1) + fib(n - 2)
+}
+
+start {
+    repeat each n in [0, 1, 2, 3, 10, 20] {
+        announce "fib({n}) = {fib(n)}"
+    }
+}
+A.2 Fixed-step simulation with components
+ANIMA 0.3
+project "Arena" {
+    target native.windows
+}
+use std.random
+use std.time
+
+trait Component {
+    define update(dt: real)
+}
+
+class Body {
+    field pos: vec3 <- vec3(0, 0, 0)
+    field vel: vec3 <- vec3(0, 0, 0)
+}
+
+class Mover is Component {
+    field body: Body
+    define update(dt: real) {
+        body.pos <- body.pos + body.vel * dt
+    }
+}
+
+class Entity {
+    field name: text
+    field parts: list of Component <- []
+    define add(part: Component) { parts.add(part) }
+    define update(dt: real) {
+        repeat each p in parts { p.update(dt) }
+    }
+}
+
+start {
+    let clock <- time.Clock(1.0 / 60.0)
+    let rng <- random.Random(42)
+    let body <- Body()
+    body.vel <- vec3(rng.next_real(), 0, 0)
+    let hero <- Entity("hero")
+    hero.add(Mover(body))
+
+    repeat 120 {
+        let steps <- clock.advance(0.016)
+        repeat steps { hero.update(clock.step) }
+    }
+    announce "x after about 2 s: {body.pos.x}"
+}
+A.3 UI scene with navigation (migrated from scene-navigation.anima)
+ANIMA 0.3
+app TwoScenes {
+    scene Home {
+        node Screen {
+            flow: column(cross: center, route: center, gap: 18)
+            wide: "100%"
+            tall: "100vh"
+            fill: "#070912"
+            ink: "#f5f7ff"
+            node Title: Heading { text: "Home"; scale: 48; weight: 300; motion: Reveal }
+            node Next: Button {
+                text: "Open details"
+                inset: "13px 20px"
+                curve: 999
+                fill: "#75ddff"
+                ink: "#061019"
+                on click { go("Details") }
+            }
+        }
+    }
+    scene Details {
+        node Screen {
+            flow: column(cross: center, route: center, gap: 18)
+            wide: "100%"
+            tall: "100vh"
+            fill: "#0d0b1d"
+            ink: "#f5f7ff"
+            node Title: Heading { text: "Details"; scale: 48; weight: 300; motion: Reveal }
+            node Back: Button {
+                text: "Back home"
+                inset: "13px 20px"
+                curve: 999
+                fill: "rgba(171,136,255,0.18)"
+                ink: "#f5f7ff"
+                on click { go("Home") }
+            }
+        }
+    }
+}
+A.4 Tests in ANIMA
+ANIMA 0.3
+use std.test
+
+define clamp_hp(hp: whole, max_hp: whole) -> whole {
+    when hp < 0 { give 0 }
+    when hp > max_hp { give max_hp }
+    give hp
+}
+
+test "clamps below zero" { expect_equal(clamp_hp(-5, 100), 0) }
+test "clamps above max"  { expect_equal(clamp_hp(500, 100), 100) }
+test "division by zero fails" {
+    expect_fail(fn() { let zero <- 0; announce 1 / zero }, "ArithmeticError")
+}
+Appendix B. Glossary
+
+[TABLE 0]
+ID | Decision | Consequences
+D1 | Calls are written name(args). perform name is deprecated (warning ANI-W004) and kept only as sugar for zero-argument statement calls. | The grammar needs call expressions and argument lists. 0.2 define blocks become zero-parameter functions with no change.
+D2 | The class keyword is class. ANIMA’s own voice is kept for statements (define, announce, repeat, when, otherwise, give). | Familiar to C++, C# and Java users on the team; the distinctive part of the language stays where people read it most.
+D3 | Static typing now: parameters, return types and fields must be annotated; locals are inferred. | Errors are found before running. The checker is a real milestone (0.3b). No generics for user code in 0.3.
+D4 | let declares, x <- value reassigns, fixed declares a constant. | 0.2 programs that used let to reassign must be migrated. The migrator does this automatically for the single global scope case.
+D5 | .anima is retired. anima migrate converts it. | One grammar to maintain. The browser JS runtime keeps running legacy files as-is until it is removed; no new features go there.
+D6 | ANIMA is the scripting, tools and UI language over a C++ engine core. | The engine’s renderer, physics, audio, assets and entity storage stay in C++. ANIMA gets a strong host API instead of AOT or pointers.
+
+[TABLE 1]
+Area | State in 0.2
+Source | .ani, header ANIMA 0.2; top-level project, define, start
+Statements | announce, let name[: type] <- expr, perform name, repeat n {}, when c {} otherwise {}
+Values | double (as whole/real), bool, string, numeric list (series)
+Expressions | * / + - < <= > >= == !=, parentheses, + concatenates when either side is text
+Capabilities | host.platform, cpu.logical_cores, cpu.parallel_sum, gpu.available/adapter/backend/vram_mb/dxr_supported/squares
+Front end | One-pass direct reader/evaluator (Reader, Runtime classes)
+Legacy UI | .anima: app, state, scene, node, properties, on events, go(), chime(), WebGPU bridge, JS browser runtime
+
+[TABLE 2]
+Observation | Evidence | Consequence for 0.3
+Syntax errors in code that is not executed are never reported; announce ((( inside when false {} passed both --check and run | Tested | The checker must walk the whole AST (A5, B6).
+Loops re-read source text each iteration; 10,000 x 1,000 nested repeat took 4.0 s on the test machine | Tested (g++ -O1) | Bytecode VM (C1 to C8). Target: at least 10x faster.
+whole is a double | Source | Integers lose precision above 2^53. Use int64 (B2).
+Single global value scope; definitions share it | Source, tested | Lexical scopes and parameters (B1 to B4).
+== compares values through their text form (1 == "1" is true) | Source | Strict typed equality (B7).
+Type-mismatch message says “got ‘number’” for 1.5 into whole | Tested | Diagnostics catalogue (section 12).
+repeat capped at 10,000; recursion capped at 64 | Spec | Replace with configurable limits (C9).
+Forward references between definitions work; undefined perform target reports a line number | Tested | Preserve; required by the module system.
+New-line terminated statements; # and // comments; { } blocks | Spec | Preserve in the lexer rules (section 3).
+
+[TABLE 3]
+Kind | Syntax | Rules
+whole | 0, 42, 1_000_000, 0xFF, 0b1010 | int64. Underscores allowed between digits. Out of range is ANI-L008. A leading - is the unary operator, not part of the literal, except that -9223372036854775808 is accepted as a special case.
+real | 1.5, 0.25, 3e8, 1.5e-3, 2. is not valid | float64. A digit must follow the decimal point. NaN and infinities are not literals; use math.NAN and math.INF.
+truth | true, false | 
+none | none | The empty maybe.
+text | "..." | Escapes: \n \r \t \" \\ \{ \} and \u{HEX} (1 to 6 hex digits, valid Unicode scalar). Any other escape is ANI-L002. Raw newlines inside a plain text literal are an error (ANI-L001); use \n or a block literal.
+text, interpolated | "Hello {name}, hp {hp + 1}" | { expr } embeds any expression; the result is converted with to_text. A literal brace is \{ or \}. Interpolation nests up to depth 4.
+text, block | """ … """ | Multi-line. The closing quotes’ indentation is stripped from every line. Interpolation and escapes work as in plain text.
+list | [1, 2, 3], [] | Trailing comma allowed. An empty literal needs a type from context (ANI-T016 otherwise).
+map | ["a": 1, "b": 2], [:] | Keys must be whole, text, truth or an enum.
+range | 0..10, 0..=10 | Exclusive and inclusive end. Only valid as a repeat source, a list/text slice index, or an argument to a function taking range.
+
+[TABLE 4]
+Level (high to low) | Operators | Associativity
+1 | postfix: call f(x), index a[i], slice a[i..j], member a.b | left
+2 | unary -, not | right
+3 | * / % | left
+4 | + - | left
+5 | .. ..= | none
+6 | < <= > >= is as | none
+7 | == != | none
+8 | and | left (short circuit)
+9 | or | left (short circuit)
+10 | fallback | left
+11 | with (record update) | left
+
+[TABLE 5]
+Type | Meaning | Default storage
+whole | signed 64-bit integer | 8 bytes inline
+real | IEEE-754 float64 | 8 bytes inline
+truth | boolean | 1 byte inline
+text | immutable UTF-8 string | refcounted heap object
+none | the type of the literal none only | tag only
+maybe T | either a T or none | tag plus payload
+list of T | growable ordered sequence | refcounted heap object, contiguous; packed arrays for whole, real, truth, vec2/3/4
+map of K to V | insertion-ordered hash map | refcounted heap object
+fn(A, B) -> R | function value (named function, lambda, bound method) | refcounted closure
+range | a..b or a..=b of whole | two int64, not storable in a variable in 0.3
+record R | user value type | boxed, copied on assignment
+class C | user reference type | refcounted heap object
+enum E | closed set of named cases | 8 bytes inline
+trait Tr | an interface, usable as a type | reference to a class instance
+weak C | non-owning reference to a class instance | weak-table handle
+vec2 vec3 vec4 mat4 quat color | engine math value types | inline up to 16 bytes, mat4 boxed; float32 storage, reads widen to real
+value | dynamically typed value, host and JSON interop only | tagged union
+error | base class of all runtime errors | heap object
+
+[TABLE 6]
+From | To | Allowed?
+T | T | yes
+whole | real | yes, implicit widening (exact up to 2^53; larger values round, which is warning ANI-W006 when the value is a compile-time constant)
+real | whole | no. Use to_whole(x) (truncates toward zero) or math.round(x), math.floor(x), math.ceil(x)
+T | maybe T | yes
+none | maybe T | yes
+maybe T | T | no; must be handled (section 5.5)
+class D | class B when D inherits B (transitively) | yes (upcast)
+class C | trait Tr when C declares is Tr (or inherits it) | yes
+class C | weak C | yes (weak reference created)
+weak C | C | no; use .get() which returns maybe C
+text literal | color, Length, Paint, Flow, other UI value types | yes, only for literals, validated at compile time (section 15.4)
+list of D | list of B | no (lists are invariant)
+anything else |  | no (ANI-T002)
+
+[TABLE 7]
+Operator | Operand types | Result
++ - * | whole, whole | whole (checked overflow, ANI-R002)
++ - * | real with real or whole | real
+/ | whole, whole | whole, truncating toward zero; zero divisor is ANI-R001
+/ | any real operand | real; real zero divisor yields +INF, -INF or NaN per IEEE and is not an error
+% | whole, whole | whole, sign follows the dividend; zero divisor ANI-R001
+% | any real | real (fmod)
++ | text with any value | text (concatenation; the other operand is converted with to_text)
++ - * | vecN with vecN | vecN component-wise
+* / | vecN with real | vecN; real * vecN also allowed
+* | mat4 * mat4, mat4 * vec4, quat * quat, quat * vec3 | mat4, vec4, quat, vec3
+- (unary) | whole, real, vecN | same type
+< <= > >= | whole/real (mixed ok), or two text (ordinal by code point) | truth
+== != | same type after widening; records structurally, classes by identity, lists and maps structurally, enums by case, maybe T with none | truth. Comparing unrelated types is ANI-T022.
+and or | truth, truth | truth (short circuit)
+not | truth | truth
+fallback | maybe T, T | T
+is | expr is Type, expr is none, expr is not none | truth
+as | expr as Class (downcast) | maybe Class
+with | record with { field: value } | same record type
+
+[TABLE 8]
+Capability | Grants
+cpu.parallel | std.cpu.parallel_sum, parallel_for
+gpu.compute | std.gpu.squares and future compute calls
+gpu.dxr_query | std.gpu.dxr_supported
+io.read | io.read_text, io.exists, io.list_dir, io.read_lines
+io.write | io.write_text, io.append_text, io.make_dir, io.remove_file
+io.env | io.env, io.args, io.cwd
+time.clock | time.now, time.sleep, time.Stopwatch, time.unix_ms
+ui.scene | building and firing UI scenes
+
+[TABLE 9]
+Limit | Default | Flag | Error
+Call depth | 256 | --max-depth N | ANI-R006
+Instruction budget | unlimited | --step-limit N | ANI-R007
+Heap bytes | unlimited | --memory-limit MB | ANI-R008
+Text length | 2^31 - 1 bytes | none | ANI-R016
+List/map length | 2^31 - 1 | none | ANI-R016
+
+[TABLE 10]
+Group | Instruction (operands) | Effect
+Constants | CONST k, NONE, TRUE, FALSE, ZERO_W, ONE_W | push constant
+Stack | POP, DUP, SWAP, POPN n | stack shuffling
+Locals | LOAD_L i, STORE_L i | local slot access
+Upvalues | LOAD_U i, STORE_U i, BOX_L i, CLOSE_U i | captured variables
+Globals | LOAD_G i, STORE_G i | module-scope slots
+Whole math | ADD_W SUB_W MUL_W DIV_W MOD_W NEG_W | checked int64 (R001, R002)
+Real math | ADD_R SUB_R MUL_R DIV_R MOD_R NEG_R, W2R | float64; W2R widens
+Compare | EQ NE, LT_W LE_W GT_W GE_W, LT_R LE_R GT_R GE_R, LT_T LE_T GT_T GE_T | push truth; EQ/NE use structural/identity rules
+Logic | NOT | negate truth
+Text | CONCAT n, TO_TEXT, TEXT_LEN, TEXT_INDEX | n-ary concatenation for interpolation
+Jumps | JMP off, JMP_F off, JMP_T off, LOOP off | forward / backward relative jumps
+Calls | CALL n, CALL_M slot n, CALL_I id n, CALL_N fn n, CALL_S slot n, RET, RET_V | function, virtual method, interface (trait) method, native, super call, return
+Closures | CLOSURE f | build closure from prototype and upvalue descriptors
+Objects | NEW cls, GET_F i, SET_F i, GET_S i, SET_S i, IS t, AS t, UP t | allocate, field, static field, type test, downcast to maybe, checked upcast
+Records | REC n t, REC_WITH n, REC_COPY | build, update, copy
+Lists | LIST n, LIST_GET, LIST_SET, LIST_ADD, LIST_LEN, SLICE | typed variants chosen at compile time (_W, _R)
+Maps | MAP n, MAP_GET, MAP_SET, MAP_HAS | MAP_GET raises R004 on a missing key; .get() uses MAP_TRY
+Maybe | UNWRAP, FALLBACK, IS_NONE | R005 on UNWRAP of none
+Iteration | ITER_NEW kind, ITER_NEXT off, RANGE_NEXT off | list, map, text, range iterators; jump when exhausted
+Errors | TRY off, TRY_END, THROW, RETHROW, ALWAYS_END | handler table entries are static; TRY records the handler offset
+Weak | WEAK_NEW, WEAK_GET | create / read weak handle
+I/O | ANNOUNCE | print top of stack with newline
+Misc | LINE (debug builds only), HALT | 
+
+[TABLE 11]
+Code | Message template
+Lexical | 
+L001 | unterminated text literal
+L002 | invalid escape sequence \x
+L003 | invalid number literal ...
+L004 | unexpected character x
+L005 | unterminated block comment
+L007 | invalid \u{...} escape
+L008 | whole literal out of range
+L009 | invalid UTF-8 byte sequence
+L010 | limit exceeded (file size, line length or nesting)
+L011 | name is reserved for a future version
+Parse | 
+P001 | expected X, found Y
+P002 | unexpected token Y
+P003 | block not closed; opened at line N
+P004 | missing ANIMA 0.3 header
+P005 | unsupported version X; run anima migrate
+P006 | only one start block is allowed
+P007 | declaration not allowed here
+P008 | otherwise without a matching when
+P009 | give outside a function
+P010 | stop/skip outside a loop
+P011 | invalid assignment target
+P012 | { must be on the same line as X
+P013 | comparison operators do not chain
+P014 | statement has no effect (expression statement must be a call)
+Type | 
+T001 | unknown name x
+T002 | type mismatch: expected A, found B
+T003 | Type has no member x
+T004 | wrong number of arguments: expected N, found M
+T005 | missing type annotation on parameter, return type or field
+T006 | condition must be truth, found X
+T007 | x is not callable
+T008 | not every path returns a value
+T009 | x is already declared in this scope
+T010 | class C does not implement abstract method m
+T011 | m overrides a base method; add override
+T012 | override but nothing to override
+T013 | C does not implement trait method m with a matching signature
+T014 | x is private to C
+T015 | value of type maybe T used where T is required
+T016 | cannot infer the element type of an empty list or map; add an annotation
+T017 | real cannot become whole implicitly
+T018 | unknown property p on node type N
+T019 | cannot assign to fixed constant x
+T020 | cannot assign through a temporary value
+T022 | operator op is not defined for A and B
+T023 | inheritance cycle: A to B to A
+T024 | self used outside a class or record method
+T025 | unknown named argument x
+T026 | argument x given twice, or positional after named
+T027 | module value x read before it is initialised
+T028 | record R contains itself directly
+T029 | self used before all fields are assigned in make
+T030 | cannot construct abstract class C
+T031 | invalid value for property type (for example a malformed colour string)
+Module | 
+M001 | module x not found; searched: …
+M002 | import cycle: …
+M003 | x is not exported by module m
+M004 | capability c is required but not declared in the project block
+M005 | native module x is not registered
+M006 | project file uses reserved module prefix
+M007 | module x matches several files; using the first
+M008 | start is only allowed in the entry module
+Runtime | 
+R001 | division by zero
+R002 | integer overflow
+R003 | index i out of range for length n
+R004 | key k not found in map
+R005 | .value of none
+R006 | call depth limit exceeded
+R007 | instruction limit exceeded
+R008 | memory limit exceeded
+R009 | collection changed length during iteration
+R010 | fail: (user message)
+R011 | native call failed: … (also: capability not declared at run time)
+R012 | invalid cast
+R013 | I/O error: …
+R014 | module value read before initialisation
+R015 | finish stored self
+R016 | size limit exceeded
+R017 | non-deterministic operation in deterministic mode
+Internal | 
+I001 | internal compiler error
+I002 | VM invariant violated
+Warnings | 
+W001 | unused variable x
+W002 | unreachable code
+W003 | x shadows an outer declaration
+W004 | perform x is deprecated; write x()
+W005 | unused import
+W006 | whole constant loses precision as real
+W007 | let x is never reassigned; consider fixed
+W008 | unused parameter x (suppress by naming it _x)
+
+[TABLE 12]
+Signature | Notes
+exit(code: whole) | ends the program with that exit code, running always blocks
+to_text(v: value) -> text | formatting rules in 6.6
+to_whole(x: real) -> whole | truncates toward zero; NaN or out of range is R001-class ArithmeticError
+to_real(x: whole) -> real | 
+parse_whole(s: text) -> maybe whole | trims whitespace; optional sign; 0x/0b accepted
+parse_real(s: text) -> maybe real | 
+type_name(v: value) -> text | 
+assert(c: truth, message: text <- "assertion failed") | fails with Failure
+
+[TABLE 13]
+0.2 call | 0.3 home | Notes
+host.platform() | std.host platform() -> text | unchanged values
+cpu.logical_cores() | std.cpu cores(); alias kept | 
+cpu.parallel_sum(N) | std.cpu | now returns whole (int64)
+gpu.available() etc. | std.gpu | capabilities gpu.compute, gpu.dxr_query
+gpu.squares(N) | std.gpu | returns list of real (was series)
+
+[TABLE 14]
+Family | Properties and types
+Content | text: text, class: text, mask: text
+Colour and effects | fill: Paint, ink: Color, gradient: Paint, edge: text, halo: text, veil: text, backdrop: text, curve: Length, filter: text
+Typography | scale: real, weight: whole, voice: text, style: text, tracking: Length, leading: real, anchor: Align, case: TextCase
+Sizing | wide: Length, tall: Length, cap: Length, minTall: Length, maxTall: Length, aspect: real
+Layout and position | flow: Flow, inset: Spacing, offset: Spacing, place: Place, top left right bottom: Length, gap: Length, flex: text, order: whole, alignSelf: Align, layer: whole, clip: truth, pointerEvents: text, transform: text
+Background image | bgImage: text, bgSize: text, bgPos: text, bgRepeat: text
+Motion | motion: Motion with enum Motion { Reveal, FadeIn, FadeUp, Glow, Pulse }
+
+[TABLE 15]
+Function | Meaning
+go(scene: text) | navigate to a scene; unknown scene name is a compile error when the argument is a literal
+chime(...) | play the generated chime; exact signature recorded from the legacy runtime in F1
+ui.dump(app) -> text | scene tree as indented text (section 15.7)
+ui.fire(path: text, event: text) | simulate an event on a node, for tests, e.g. ui.fire("Main/Hit", "click")
+ui.find(path: text) -> maybe Node | look up a node
+ui.run(app) | enter the event loop (host dependent; in 0.3 a headless loop for tests)
+
+[TABLE 16]
+Command | Behaviour
+anima run <file or folder> [args] | check, compile, run start; exit code is the program’s or 1/2/4/5
+anima check <file or folder> | full static check of every reachable module; no execution
+anima test <folder> [--filter s] | run test blocks and conformance files; summary and exit code
+anima repl | interactive loop (16.3)
+anima migrate <file.anima \| file.ani> [-o out] | convert (section 20) and write a migration report
+anima dis <file> | print bytecode with source lines
+anima scene <file> [--fire path:event] | build and dump the scene tree, optionally firing events
+anima ui-catalog | print the node and property registry
+anima version | version, build, enabled capabilities, host platform
+
+[TABLE 17]
+Layer | What | Tool
+Unit tests | lexer tokens and spans; parser trees (printed S-expressions); checker types; VM opcodes; allocator, refcount, map and list internals | C++ mini framework in AnimaTests
+Conformance | each language feature as a small .ani with expected output | anima test runner
+Error tests | invalid programs with the exact diagnostic code, line and column | .error files
+Golden bytecode | disassembly of every conformance program | .dis files, reviewed on change
+Differential | every program in the 0.2 subset run on the reference evaluator and the new VM, outputs must be byte-identical | generated list of 0.2-compatible tests
+UI | scene dumps after fired events | .scene files
+Migration | every legacy .anima and 0.2 .ani file migrated, checked, and compared with an expected .ani | migrate/ folder
+Fuzz | random and mutated source fed to lexer, parser and checker: no crash, no hang beyond 2 s, no sanitizer report | in-tree fuzzer, seed logged
+Property | randomised arithmetic and container operations compared to a C++ model | in-tree
+Leak and memory | each conformance program under --leak-check; Linux ASan/UBSan runs | CI script
+Benchmarks | section 19 | AnimaTests/bench with thresholds
+
+[TABLE 18]
+After | Minimum conformance + error tests | Other
+0.3a | 60 | all 0.2 examples parse; lexer/parser fuzz clean for 10 minutes
+0.3b | 160 | checker error catalogue 70 percent covered
+0.3c | 240 | differential suite green; benchmarks recorded
+0.3d | 340 | no leaks in object tests
+0.3e | 440 | every stdlib function has a passing test and an error test
+0.3f | 520 | every legacy sample migrates; every error code has a test
+
+[TABLE 19]
+Benchmark | 0.2 baseline | 0.3 required | 0.3 goal
+10M iterations, total <- total + 1 (10,000 x 1,000 nested repeat) | 4.0 s (g++ -O1, test machine) | under 0.8 s | under 0.4 s
+fib(30) recursive (about 1.6M calls) | not possible (no parameters) | under 1.0 s | under 0.5 s
+Sort 1,000,000 whole | not possible | under 0.4 s | under 0.25 s
+Create 100,000 small class instances and release them | not possible | under 0.15 s | under 0.08 s
+Startup (hello world, cold) | not measured | under 30 ms | under 15 ms
+anima check on a 2,000-line module | not possible | under 50 ms | under 20 ms
+Map: 1,000,000 inserts and lookups | not possible | under 0.5 s | under 0.3 s
+
+[TABLE 20]
+0.2 behaviour | 0.3 behaviour | Migrator action
+Header ANIMA 0.2 | ANIMA 0.3 | rewrite
+whole is a double | whole is int64 | none; report if a value exceeds 2^63
+/ always real | / on two wholes truncates | report each / between values typed whole; the user chooses to_real or leaves it
+series type | list of real | rewrite annotation
+let x <- ... reassigns existing name | let declares; reassignment is x <- ... | dataflow rewrite (20.2)
+Single global scope; definitions see all variables | definitions see only parameters, their own locals and module-scope names | declare shared variables at module scope; the migrator hoists them
+perform name | name() | rewrite; warning ANI-W004 if left
+== compares textual forms | strict typed equality | flag mixed comparisons as errors with help
+repeat capped at 10,000 | no cap | none
+Recursion cap 64 | default 256 | none
+Error wording | new codes | none
+
+[TABLE 21]
+Legacy | 0.3
+app Name { ... } | app Name { ... }
+state title = "Hello"; | state title <- "Hello" (type inferred)
+scene Home { ... } | unchanged
+node Screen { ... } | unchanged (type Box)
+node Title: Heading { text: "x"; } | node Title: Heading { text: "x" } (semicolons optional)
+node RoomCanvas: canvas { ... } | node RoomCanvas: Canvas { ... }
+property: "literal"; | unchanged; literal validated at compile time
+on click: go("Details"); | on click { go("Details") }
+on click: gpu.setRayTracing(true); | on click { legacy.browser_call("gpu.setRayTracing", true) } and a note
+motion: Reveal; | motion: Reveal (enum)
+Anima.parse(...) / Anima.mount(...) JS host code | not migrated; documented as removed; replaced by anima scene and ui.run
+
+[TABLE 22]
+Milestone | Theme | Effort | Entry criteria | Exit criteria
+0.3a | Front end | 3 | 0.2 Preview builds | Every 0.2 example lexes, parses and runs through the new front end; syntax errors are found in unexecuted code; 60 tests; lexer and parser fuzz-clean
+0.3b | Semantics and checker | 5 | 0.3a done | Static type errors reported before running; functions, scopes, closures, lists, maps, maybe, interpolation; 160 tests
+0.3c | Bytecode VM | 4 | 0.3b done | All 0.2 examples and all conformance tests run on the VM; differential suite green; benchmark targets met; limits and traces working
+0.3d | Objects | 4 | 0.3c done | Records, classes, traits, enums, inheritance, weak refs, finish; entity-component sample passes; no leaks
+0.3e | Modules, library, host API | 6 | 0.3d done | Multi-file project runs; capability gating; 12 stdlib modules; a new native function added in under 10 lines of C++; stubs match natives
+0.3f | Unification | 4 | 0.3e done | Declarative UI in the language; every legacy sample migrates and checks; scene dumps and event tests; docs and examples updated
+
+[TABLE 23]
+WP | Work | Deliverable | Depends | Acceptance
+A1 | Repository restructure and build | Layout of 17.1; AnimaCore library; CMake and VS projects; reference evaluator frozen in ReferenceEvaluator/ | none | Clean build on both toolchains; 0.2 examples run via the reference evaluator
+A2 | Lexer | Tokens, spans, all literal forms, interpolation parts, newline rules (3.6), lexical errors with recovery | A1 | 40 token-level tests; fuzz 10 min clean
+A3 | AST definitions | Node catalogue (11.2), arena allocator, S-expression printer | A1 | Printer round-trips every example
+A4 | Parser: items and statements | All grammar of 4.1 to 4.3 and 4.5; error recovery; max 20 errors | A2, A3 | Every grammar production has a passing and a failing test
+A5 | Parser: expressions and whole-file validation | Pratt parser (4.4); anima check parses the entire file and all reachable modules without executing | A4 | announce ((( in a dead branch is reported
+A6 | Diagnostics engine | Diagnostics, SourceMap, text and JSON renderers, error and warning codes registry | A2 | Snapshot tests of rendered output
+A7 | Test runner v1 | anima test with .expected and .error files; Run-All-Tests script | A1 | Runs on both OSes
+A8 | Reference-evaluator parity | New parser feeds a temporary tree-walking evaluator for the 0.2 subset only | A5 | All 0.2 examples give identical output to the reference
+
+[TABLE 24]
+WP | Work | Deliverable | Depends | Acceptance
+B1 | Symbol tables and scopes | Module, function and block scopes; shadowing rules; forward references | A5 | T001, T009, W003 tests
+B2 | Numeric semantics | int64 whole, checked overflow, float64 real, widening, conversions, literals (hex, binary, underscores) | A5 | Overflow, division, modulo, widening tests
+B3 | Functions | Parameters, return types, defaults, named arguments, give, recursion limit | B1 | T004, T005, T008, T025, T026 tests; fib runs on the temporary evaluator
+B4 | Lambdas and closures | fn expressions, capture analysis, boxed locals | B3 | Per-iteration capture test (6.8)
+B5 | Collections and maybe | list of, map of, literals, indexing, slicing, maybe, none, fallback, narrowing | B2 | T015, T016, narrowing tests
+B6 | Checker body pass | Inference, assignability (5.3), definite return, reachability, lint warnings | B1 to B5 | Whole error catalogue T-codes available have tests
+B7 | Operators and equality | Typing table 5.4; strict equality; is, as, with placeholders for later | B6 | T022 and equality tests
+B8 | Text | Interpolation, block literals, text methods, to_text rules | B2 | 30 text tests
+B9 | Diagnostics quality | Help text, “did you mean”, multi-error recovery in the checker | B6 | Every T-code has help or an explicit “none”
+B10 | Grammar freeze | Reserved words and grammar frozen; spec revision 1.1 | B9 | Decision logged (26.1)
+
+[TABLE 25]
+WP | Work | Deliverable | Depends | Acceptance
+C1 | Values and heap | Value, ObjHeader, pool allocator, refcounting with iterative release, text, list, map storage | B10 | Allocator and refcount unit tests under ASan
+C2 | Bytecode format | Opcode set (10.2), chunk and constant pool, line table, assembler and anima dis | B10 | Disassembly golden files
+C3 | Codegen: expressions and statements | Typed arithmetic, comparisons, control flow, interpolation | C1, C2 | All 0.2 programs run
+C4 | Calls, closures, upvalues | CALL, RET, defaults inlined, boxed captures | C3 | B3 and B4 tests on the VM
+C5 | Iteration | repeat each, ranges, iterator opcodes, R009 | C3 | Loop tests including mutation
+C6 | Errors | attempt, rescue, always, handler tables, stack traces with ANIMA lines | C4 | 40 error-flow tests
+C7 | Differential suite and REPL | Generated differential tests; REPL [Stretch] | C3 | Byte-identical output on the 0.2 subset
+C8 | Benchmarks and first optimisation pass | Section 19 benchmarks and thresholds in the gate | C3 | Targets in 19.1 “required” met
+C9 | Limits and deterministic mode | --max-depth, --step-limit, --memory-limit, --deterministic, --leak-check | C4 | Each limit has a test
+C10 | Retire the temporary evaluator | Remove A8’s evaluator; VM is the only path | C7 | CI green
+
+[TABLE 26]
+WP | Work | Deliverable | Depends | Acceptance
+D1 | Records | Declaration, generated constructor, with, value semantics, structural equality | C10 | 25 tests
+D2 | Classes | Fields, defaults, make, methods, generated constructors, self, is/as | C10 | 40 tests
+D3 | Inheritance | is Base, super, abstract, override, vtables, T010 to T012, T029, T030 | D2 | 30 tests
+D4 | Traits | Declaration, default methods, conformance checking, itable dispatch, trait-typed values | D3 | 25 tests
+D5 | Enums | Cases, backing values, all(), from_name, map keys | C10 | 15 tests
+D6 | shared and visibility | shared field/define, private, T014 | D2 | 15 tests
+D7 | Weak references and finish | weak type, weak table, .get(), finish ordering, R015 | D3 | 25 tests including cycles
+D8 | Leak checker | Allocation-site tracking, --leak-check, object-graph tests | D7 | Entity-component sample leak-free
+D9 | Sample programs | Entity-component sample, inventory sample, state-machine sample | D4 | Run in CI
+
+[TABLE 27]
+WP | Work | Deliverable | Depends | Acceptance
+E1 | Module loader | Resolution (8.3), cycles, init order, use, from use, export | D9 | M001 to M008 tests; 5-file project runs
+E2 | Project manifest and capabilities | project fields, anima.project, capability table, gating | E1 | M004 and R011 tests
+E3 | Host API | Types, registration (14.2 to 14.7), native classes, callables, stubs | E1 | Add std.math.sqrt in under 10 lines
+E4 | Port the 0.2 built-ins | std.host, std.cpu, std.gpu with aliases (14.8) | E3 | Windows: native-power.ani runs; Linux: placeholders
+E5 | std.core | Text, list, map, maybe methods; exit, to_*, parse_*, assert | E3 | Every function has a test and an error test
+E6 | std.math and vector types | Math functions, vec2/3/4, mat4, quat, color with packed list storage | E3 | Numeric tests against known values; list of vec3 packed
+E7 | std.io and std.json | Sandboxed I/O, JSON parse and write | E2 | Path escape tests; JSON round-trip tests
+E8 | std.time, std.random, std.log | Clock, Stopwatch, PCG32, loggers | E3 | Determinism tests; known PCG sequences
+E9 | std.test | test blocks, expect*, summary and exit code | E1 | Self-hosted tests
+E10 | Stub verification | Test that every stub matches the registered natives exactly | E5 to E8 | Test fails if either side changes
+E11 | [Stretch] extend blocks, parallel_for, log.debug lambdas, bytecode cache |  | E5 | Each optional
+
+[TABLE 28]
+WP | Work | Deliverable | Depends | Acceptance
+F1 | Legacy inventory | Complete list of node types, properties, events, built-in actions and GPU bridge calls from the full legacy runtime and the docs app’s checker | none (start early, in parallel with 0.3d) | Inventory file reviewed by the team; registry seeded
+F2 | UI grammar and node registry | app, state, scene, node, on parsing; std.ui type registry; user node types extending ui.Node | E1, F1 | T018 tests; unknown type error
+F3 | Typed properties and validated literals | Property types, compile-time parsing of colours, lengths, spacings, flows, enums (15.4) | F2 | T031 tests for every value type
+F4 | State and bindings | state, pure-binding analysis, dirty tracking, changesets (15.6) | F2 | Binding tests; T032
+F5 | Events and navigation | on handlers as lambdas, go, chime, ui.fire, ui.find | F4 | Fire-and-dump tests
+F6 | Migrator for .anima | Rules in 20.3, migration report | F3 | Every legacy sample migrates, checks, and dumps a tree equal to the expected structure
+F7 | Migrator for 0.2 .ani | Rules in 20.2 | E1 | Every 0.2 example migrates and runs identically
+F8 | Scene dump and headless runner | anima scene, ui.dump, golden .scene files | F5 | Section 15.7 format
+F9 | Documentation and examples | Update AnimaDocs content (language reference, library reference, migration guide, 12 shipped examples); docs examples are CI tests | F6, F7 | Docs app builds; every code block runs or is marked as not runnable
+F10 | Release | Version 0.3.0 preview, changelog, spec revision 1.2, known-issues list | all | Gate green on both OSes
+
+[TABLE 29]
+Category | Items
+Must | Everything in 21.2 to 21.7 not marked Stretch: lexer, parser, checker, VM; functions, closures; records, classes, traits, enums, weak, finish; modules, capabilities; std.core, math, io, json, time, random, log, test, cpu, gpu, host; host API; UI declarations, bindings, events, scene dump; migrators; tests; docs
+Stretch (cut first, in this order) | 1. parallel_for with ANIMA bodies. 2. log.debug lambdas. 3. Bytecode cache (.anic). 4. REPL. 5. extend blocks and re-export. 6. Editor support (TextMate grammar for VS Code). 7. Spelling suggestions beyond identifiers.
+Not in 0.3 | match and enum payloads (0.4); user generics (0.4); async, tasks (0.5); GPU resource handles, kernels, compute graphs (0.4); native UI rendering and engine modules (0.5); AOT compiler and standalone executables (0.6+); package manager; formatter; debugger; non-ASCII identifiers; operator overloading; protected visibility; multiple inheritance
+
+[TABLE 30]
+Engine need | 0.3 feature
+Math | vec2/3/4, mat4, quat, color; float32 storage; packed lists uploadable without conversion
+Deterministic simulation | time.Clock fixed step, PCG random, deterministic mode, strict numerics (19.3)
+Entity and component code | classes, traits, enums, shared members, weak references, finish
+Content and config | records with defaults, JSON, enums, project manifests
+Tools and automation | file I/O, CLI, tests as code
+Engine integration | host API with typed native classes, callables, capability gating
+Scene and UI description | declarative app/scene/node with bindings (rendered natively in 0.5)
+Iteration speed | fast startup, bytecode, anima check; hot reload design (23.4)
+
+[TABLE 31]
+Version | Theme | Headlines
+0.4 | Language depth and GPU | match, enum payloads, user generics, explicit GPU resource handles, shader and kernel declarations, compute graphs, ECS-friendly packed component storage, remove 0.2 compat mode
+0.5 | Native UI and engine modules | Native renderer for the scene tree, engine.window, engine.input, engine.audio, room demo reimplemented as .ani, async tasks
+0.6+ | Distribution | Optional AOT or bundler producing standalone executables; package manager; debugger; formatter
+
+[TABLE 32]
+ID | Risk | Likelihood | Impact | Mitigation | Early warning
+R1 | Scope exceeds capacity of a two-person studio | High | High | Milestone order; 22 cut order; 0.3a to 0.3c as the useful minimum | Any milestone takes over 1.5x its estimate
+R2 | Static typing and inference slow progress or produce confusing errors | Medium | High | Small type system; no generics; diagnostics WP B9; spike checker early | More than 3 weeks in B6
+R3 | Refcount cycles leak in real programs | Medium | Medium | weak; leak checker; style guide; cycle collector considered for 0.4 | Leak reports in samples
+R4 | Grammar churn after tests exist | Medium | High | Freeze at B10; written change control (26.1) | More than 3 grammar changes after freeze
+R5 | Legacy UI inventory incomplete, migrator misses features | Medium | Medium | F1 starts at week 1; migration report lists unknowns | New unknown property found after F6
+R6 | Windows-only code (D3D12) cannot be tested in Linux CI | High | Medium | Isolate in AnimaHost; stub fallbacks; Windows gate run manually before release | Windows-only failures
+R7 | MSVC and GCC diverge (floating point, undefined behaviour) | Medium | High | -ffp-contract=off, /fp:precise; sanitiser CI; determinism tests on both | Output differs between platforms
+R8 | Performance targets missed by the interpreter design | Low | Medium | Typed opcodes; benchmarks from C2; optimisation backlog 19.2 | C8 below “required”
+R9 | Host API design wrong; engine work later forces breaking changes | Medium | High | Build a real native module (engine.window spike) during E3; review before freeze | Spike needs features not in the API
+R10 | Docs and brand work competes with language work | High | Medium | Pause new docs-app features and media until 0.3c; docs examples are CI tests so they cannot rot | Language WPs idle
+R11 | Single person owns critical knowledge | High | Medium | Spec is the shared knowledge; decision log; pair on the checker and host API | Questions only one person can answer
+R12 | Interpolation and newline rules cause surprising parse errors | Medium | Medium | Rules in 3.6 tested exhaustively; helpful P012 style messages | User-reported confusing errors
+R13 | Records copied on every assignment hurt performance | Medium | Low | Copy-on-write option (19.2); document class vs record guidance | Benchmarks with record-heavy code
+R14 | Floating point formatting differs across platforms | Medium | Medium | In-tree shortest round-trip algorithm (19.3 N5) | Golden-file diffs by platform
+
+[TABLE 33]
+ID | Date | Decision | Status
+D1 | 2026-10-10 | Plain name(args) calls; perform deprecated | Ratified
+D2 | 2026-10-10 | class keyword | Ratified
+D3 | 2026-10-10 | Static typing, local inference | Ratified
+D4 | 2026-10-10 | let declares, <- reassigns, fixed constants | Ratified
+D5 | 2026-10-10 | .anima retired, migrator provided | Ratified
+D6 | 2026-10-10 | ANIMA is scripting, tools and UI over a C++ core | Ratified
+D7 | 2026-10-10 | Detail choices in this spec (int64 whole, truncating whole division, fallback, make/finish, give, repeat each, weak, capabilities, PCG32) | Proposed in this document; confirm at the start of 0.3a
+
+[TABLE 34]
+Term | Meaning
+AST | abstract syntax tree: the parsed structure of a program
+Capability | a named permission that gates a class of native functionality
+Chunk | the compiled bytecode and metadata of one function
+Checker | the pass that resolves names and types and reports errors before running
+Constant pool | the table of literal values a chunk refers to
+Differential test | running one program on two implementations and comparing outputs
+Golden file | a stored expected output that tests compare against
+Host | the C++ program embedding the ANIMA runtime and providing native functions
+Itable | interface table: per-class lookup used for trait method calls
+Narrowing | treating a maybe T as T inside a block where it is known to have a value
+Spike | a short experiment built to reduce uncertainty before committing
+Upvalue | a captured variable shared between a function and its closures
+Vtable | virtual table: per-class array of method pointers
+WP | work package

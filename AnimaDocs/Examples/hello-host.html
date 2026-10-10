@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#070912">
+  <title>Hello Anima · Unrecorded Labs</title>
+  <style>
+    html, body, #app { margin: 0; min-height: 100%; }
+    body { background: #070912; color: #f4f7ff; }
+    #app { position: relative; min-height: 100vh; }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+  <script src="../runtime/anima-runtime.js"></script>
+  <script>
+    const source = `
+      app Hello {
+        scene Home {
+          node Screen {
+            flow: column(cross: center, route: center, gap: 14);
+            wide: "100%";
+            tall: "100vh";
+            fill: "#070912";
+            ink: "#f4f7ff";
+            node Title: Heading {
+              text: "Hello, Anima.";
+              scale: 56;
+              weight: 300;
+              gradient: "linear-gradient(100deg,#ffffff,#75ddff,#ab88ff)";
+              motion: Reveal;
+            }
+            node Subtitle: Paragraph {
+              text: "Code × Motion × Interfaces";
+              scale: 15;
+              tracking: 0.12;
+              ink: "#9aa8c7";
+              motion: FadeUp;
+            }
+            node Action: Button {
+              text: "Play a chime";
+              inset: "12px 18px";
+              curve: 999;
+              fill: "rgba(117,221,255,0.12)";
+              ink: "#dff9ff";
+              edge: "1px solid rgba(117,221,255,0.35)";
+              on click: chime(660);
+              on press: Pulse;
+            }
+          }
+        }
+      }
+    `;
+    const program = Anima.parse(source);
+    Anima.mount(program, document.getElementById("app"));
+  </script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+app MotionDemo {
+  scene Home {
+    node Screen {
+      flow: column(cross: center, route: center, gap: 16);
+      wide: "100%"; tall: "100vh"; fill: "#070912"; ink: "#f4f7ff";
+      node Title: Heading {
+        text: "Reveal, then pulse";
+        scale: 38; weight: 350;
+        motion: Reveal | Pulse * 2;
+      }
+      node Hint: Small { text: "Motion is composed in source."; ink: "#98a5c0"; motion: FadeUp; }
+    }
+  }
+}

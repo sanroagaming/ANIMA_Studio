@@ -1,0 +1,18 @@
+ANIMA NATIVE — BUILD IN VISUAL STUDIO
+=====================================
+
+1. Extract the complete ZIP (do not open the solution inside a ZIP viewer).
+2. Open AnimaNative/AnimaNative.sln in Visual Studio 2022.
+3. Install workload: Desktop development with C++.
+4. Select Debug | x64.
+5. Build > Build Solution (Ctrl+Shift+B).
+6. Press F5.
+
+If Visual Studio says the project is missing, check that AnimaNative.vcxproj
+is beside AnimaNative.sln and that src/, shaders/, and Examples/ are present.
+
+Required: Windows 10/11, Visual Studio 2022, MSVC v143, Windows 10/11 SDK.
+No browser or external packages are required.
+
+This milestone uses Direct3D 12 compute tracing. DXR support is detected but
+a full DXR ray-tracing pipeline (BLAS/TLAS) is not implemented yet.

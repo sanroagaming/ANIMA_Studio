@@ -1,0 +1,17 @@
+ANIMA 0.3
+
+define double(value: whole) -> whole {
+    give value * 2
+}
+
+define quadruple(value: whole) -> whole {
+    give double(value) * 2
+}
+
+enum Dial { low, medium, high <- 10 }
+
+record Bounds {
+    minimum: whole <- 0
+    maximum: whole <- 100
+    direction: Dial <- Dial.low
+}

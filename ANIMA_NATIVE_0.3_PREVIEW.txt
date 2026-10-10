@@ -1,0 +1,23 @@
+ANIMA Native Studio 0.3 Integrated Preview
+Unrecorded Labs
+
+This package brings together the legacy 0.2 reference runtime, the 0.3 checker/compiler/bytecode VM, native documentation reader, Direct3D 12 room-renderer prototype and a unified `anima.exe` launcher.
+
+BUILD
+1. Extract all files.
+2. Run Build-ANIMA.bat, or open ANIMA_Studio.sln in Visual Studio 2022.
+3. Install Desktop development with C++, MSVC v143, and Windows 10/11 SDK.
+4. Choose Debug | x64 and build the solution.
+5. Run Run-ANIMA.bat or x64\Debug\anima.exe.
+
+LAUNCHER COMMANDS
+- anima / anima docs: native documentation app
+- anima room: native D3D12 room demo
+- anima run/check/test/dis/migrate/scene/ui-catalog/self-test: 0.3 CLI
+- anima legacy <args>: 0.2 reference runtime
+- anima new <folder>: starter .ani project generator
+- anima doctor: checks companion executables exist
+
+Validation performed here: portable GNU C++20 build, 84 internal self-tests, 15 CTest targets, smoke suite, and archive/XML/project path checks. This environment cannot run Visual Studio/MSVC or the real GPU hardware path.
+
+Boundary: preview, not a finished language/engine. Full classes/traits/closures, complete type checking, exception unwinding, module export system, standard library breadth, full migrator conformance, leak/fuzz/differential tests and native renderer/physics/audio/input integration remain work. No AOT compiler or new GPU-kernel language is introduced by 0.3.

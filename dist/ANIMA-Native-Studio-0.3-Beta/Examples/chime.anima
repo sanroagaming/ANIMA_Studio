@@ -1,0 +1,26 @@
+app ChimeDemo {
+  scene Home {
+    node Screen {
+      flow: column(cross: center, route: center, gap: 18);
+      wide: "100%";
+      tall: "100vh";
+      fill: "#070912";
+      ink: "#f4f7ff";
+      node Title: Heading {
+        text: "Tap to listen.";
+        scale: 42;
+        weight: 350;
+      }
+      node ChimeButton: Button {
+        text: "Play 660 Hz";
+        inset: "14px 24px";
+        curve: 999;
+        fill: "#75ddff";
+        ink: "#061019";
+        motion: FadeUp;
+        on press: Pulse;
+        on click: chime(660);
+      }
+    }
+  }
+}

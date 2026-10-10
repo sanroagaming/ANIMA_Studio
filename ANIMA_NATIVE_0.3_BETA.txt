@@ -1,0 +1,11 @@
+ANIMA Native Studio 0.3 Beta
+Unrecorded Labs
+
+Includes a native Studio launcher, native Markdown documentation reader, Direct3D 12 room demo prototype, retained 0.2 runtime, and ANIMA 0.3 language runtime/compiler preview.
+
+Build channel: Beta / evaluation build
+Primary architecture: Windows x64
+Toolchain: Visual Studio 2022, MSVC v143, C++20
+Portable release: static MSVC CRT (/MT), companion binaries and content packaged side by side.
+
+Known limitations: not full conformance to the 0.3 engineering specification; native D3D12/DXR hardware must be tested on supported Windows hardware; no ahead-of-time compiler or standalone executable bundler for .ani programs yet.

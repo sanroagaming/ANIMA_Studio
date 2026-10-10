@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source">
+      <UniqueIdentifier>{A5C2A739-BE15-4A74-8C88-A1C7C7180301}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="GPU Backend">
+      <UniqueIdentifier>{A5C2A739-BE15-4A74-8C88-A1C7C7180302}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Examples">
+      <UniqueIdentifier>{A5C2A739-BE15-4A74-8C88-A1C7C7180303}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Documentation">
+      <UniqueIdentifier>{A5C2A739-BE15-4A74-8C88-A1C7C7180304}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\main.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
+    <ClCompile Include="src\AnimaGpu.cpp">
+      <Filter>GPU Backend</Filter>
+    </ClCompile>
+    <ClInclude Include="src\AnimaGpu.h">
+      <Filter>GPU Backend</Filter>
+    </ClInclude>
+    <ClInclude Include="src\AnimaBytecode.h">
+      <Filter>Source</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="CMakeLists.txt" />
+    <None Include="Examples\*.ani" />
+    <None Include="Examples\*.ani" />
+    <None Include="Examples\*.ani" />
+    <None Include="Examples\*.ani" />
+    <None Include="Examples\*.ani" />
+    <None Include="Examples\SpecificationTargets\*.ani" />
+    <None Include="Examples\SpecificationTargets\*.ani" />
+    <None Include="Examples\SpecificationTargets\*.ani" />
+    <None Include="Examples\Modules\*.ani" />
+    <None Include="Examples\Modules\*.ani" />
+    <None Include="Examples\Modules\*.ani" />
+    <None Include="docs\*.md" />
+    <None Include="docs\*.md" />
+    <None Include="docs\*.md" />
+    <None Include="Reference\*.docx" />
+    <None Include="Reference\*.txt" />
+    <None Include="Reference\0.2-examples\*.ani" />
+    <None Include="Reference\0.2-examples\*.ani" />
+    <None Include="Reference\0.2-examples\*.ani" />
+    <None Include="Tests\*.*" />
+    <None Include="Tests\*.*" />
+    <None Include="Tests\*.*" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>17.0</VCProjectVersion>
+    <Keyword>Win32Proj</Keyword>
+    <ProjectGuid>{AC725936-47DD-4D4D-89AA-AFCEBB24E743}</ProjectGuid>
+    <RootNamespace>AnimaStudio</RootNamespace>
+    <ProjectName>AnimaStudio</ProjectName>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v145</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v145</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings" />
+  <ImportGroup Label="Shared" />
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup>
+    <OutDir>$(SolutionDir)x64\$(Configuration)\</OutDir>
+    <IntDir>$(SolutionDir)x64\$(Configuration)\obj\AnimaStudio\</IntDir>
+    <TargetName>AnimaStudio</TargetName>
+    <ApplicationIcon>Assets\anima-docs.ico</ApplicationIcon>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <WarningLevel>Level4</WarningLevel>
+      <SDLCheck>true</SDLCheck>
+      <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <Optimization>Disabled</Optimization>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+      <AdditionalOptions>/utf-8 /permissive- %(AdditionalOptions)</AdditionalOptions>
+      <PreprocessorDefinitions>UNICODE;_UNICODE;WIN32_LEAN_AND_MEAN;NOMINMAX;_DEBUG;_WIN32_WINNT=0x0A00;WINVER=0x0A00;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>gdiplus.lib;comctl32.lib;shell32.lib;shlwapi.lib;dwmapi.lib;comdlg32.lib;ole32.lib;uuid.lib;user32.lib;gdi32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+    <PostBuildEvent>
+      <Command>if not exist "$(OutDir)LanguageDocs" mkdir "$(OutDir)LanguageDocs"
+if not exist "$(OutDir)Reference" mkdir "$(OutDir)Reference"
+copy /Y "$(SolutionDir)Anima03\docs\ANIMA_03_LANGUAGE_GUIDE.md" "$(OutDir)LanguageDocs\ANIMA_03_LANGUAGE_GUIDE.md" &gt;nul
+copy /Y "$(SolutionDir)Anima03\docs\ANIMA_03_BC_INTEGRATED.md" "$(OutDir)LanguageDocs\ANIMA_03_BC_INTEGRATED.md" &gt;nul
+copy /Y "$(SolutionDir)AnimaLang\docs\ANIMA_02_LANGUAGE_SPEC.md" "$(OutDir)LanguageDocs\ANIMA_02_LANGUAGE_SPEC.md" &gt;nul
+copy /Y "$(SolutionDir)VISUAL_STUDIO_BUILD_AND_RUN.md" "$(OutDir)LanguageDocs\VISUAL_STUDIO_BUILD_AND_RUN.md" &gt;nul
+copy /Y "$(SolutionDir)Anima03\Reference\ANIMA_0.3_Engineering_Specification.docx" "$(OutDir)Reference\ANIMA_0.3_Engineering_Specification.docx" &gt;nul</Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <WarningLevel>Level4</WarningLevel>
+      <SDLCheck>true</SDLCheck>
+      <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <AdditionalOptions>/utf-8 /permissive- %(AdditionalOptions)</AdditionalOptions>
+      <PreprocessorDefinitions>UNICODE;_UNICODE;WIN32_LEAN_AND_MEAN;NOMINMAX;NDEBUG;_WIN32_WINNT=0x0A00;WINVER=0x0A00;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <AdditionalDependencies>gdiplus.lib;comctl32.lib;shell32.lib;shlwapi.lib;dwmapi.lib;comdlg32.lib;ole32.lib;uuid.lib;user32.lib;gdi32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+    <PostBuildEvent>
+      <Command>if not exist "$(OutDir)LanguageDocs" mkdir "$(OutDir)LanguageDocs"
+if not exist "$(OutDir)Reference" mkdir "$(OutDir)Reference"
+copy /Y "$(SolutionDir)Anima03\docs\ANIMA_03_LANGUAGE_GUIDE.md" "$(OutDir)LanguageDocs\ANIMA_03_LANGUAGE_GUIDE.md" &gt;nul
+copy /Y "$(SolutionDir)Anima03\docs\ANIMA_03_BC_INTEGRATED.md" "$(OutDir)LanguageDocs\ANIMA_03_BC_INTEGRATED.md" &gt;nul
+copy /Y "$(SolutionDir)AnimaLang\docs\ANIMA_02_LANGUAGE_SPEC.md" "$(OutDir)LanguageDocs\ANIMA_02_LANGUAGE_SPEC.md" &gt;nul
+copy /Y "$(SolutionDir)VISUAL_STUDIO_BUILD_AND_RUN.md" "$(OutDir)LanguageDocs\VISUAL_STUDIO_BUILD_AND_RUN.md" &gt;nul
+copy /Y "$(SolutionDir)Anima03\Reference\ANIMA_0.3_Engineering_Specification.docx" "$(OutDir)Reference\ANIMA_0.3_Engineering_Specification.docx" &gt;nul</Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="src\main.cpp" />
+    <ResourceCompile Include="app.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Assets\anima-docs.ico" />
+    <None Include="README.md" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\AnimaHub\AnimaHub.vcxproj">
+      <Project>{A41A8211-7C08-4D19-9F22-0F4E37A34B01}</Project>
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+      <LinkLibraryDependencies>false</LinkLibraryDependencies>
+    </ProjectReference>
+    <ProjectReference Include="..\AnimaDocs\AnimaDocs.vcxproj">
+      <Project>{82A3FBE1-CF0D-4CC4-A7A3-A2D3049B2A11}</Project>
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+      <LinkLibraryDependencies>false</LinkLibraryDependencies>
+    </ProjectReference>
+    <ProjectReference Include="..\AnimaNative\AnimaNative.vcxproj">
+      <Project>{B84A8C62-AE90-48D1-91EF-A529130DCA55}</Project>
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+      <LinkLibraryDependencies>false</LinkLibraryDependencies>
+    </ProjectReference>
+    <ProjectReference Include="..\AnimaLang\AnimaLang.vcxproj">
+      <Project>{76FCA3D1-9692-4B2B-A6F4-66E2A9A41C21}</Project>
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+      <LinkLibraryDependencies>false</LinkLibraryDependencies>
+    </ProjectReference>
+    <ProjectReference Include="..\Anima03\Anima03.vcxproj">
+      <Project>{D908E17A-2A68-45A7-91F1-1130C39A03A0}</Project>
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+      <LinkLibraryDependencies>false</LinkLibraryDependencies>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+</Project>

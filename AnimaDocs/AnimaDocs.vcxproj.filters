@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Resources">
+      <UniqueIdentifier>{A5D17D2C-7E08-41A0-B5A3-B850DE4CBF10}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;bin;rct;png;jpg;jpeg</Extensions>
+    </Filter>
+    <Filter Include="Documentation Content">
+      <UniqueIdentifier>{4BD6C07B-F837-4C28-AC91-DA1B15A286DF}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\main.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ResourceCompile Include="app.rc">
+      <Filter>Resources</Filter>
+    </ResourceCompile>
+    <None Include="Content\*.md">
+      <Filter>Documentation Content</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Content\*.md" />
+    <None Include="Content\*.md" />
+    <None Include="Content\*.md" />
+    <None Include="Content\*.md" />
+    <None Include="Content\*.md" />
+    <None Include="Content\*.md" />
+    <None Include="Content\*.md" />
+    <None Include="Content\*.md" />
+    <None Include="Content\*.md" />
+    <None Include="Content\*.md" />
+    <None Include="Content\*.md" />
+    <None Include="Content\*.md" />
+    <None Include="Content\*.md" />
+    <None Include="Content\*.md" />
+    <None Include="Assets\*.*">
+      <Filter>Resources</Filter>
+    </None>
+    <None Include="Assets\*.*">
+      <Filter>Resources</Filter>
+    </None>
+    <None Include="Assets\*.*">
+      <Filter>Resources</Filter>
+    </None>
+    <None Include="Assets\*.*">
+      <Filter>Resources</Filter>
+    </None>
+    <None Include="Assets\*.*">
+      <Filter>Resources</Filter>
+    </None>
+    <None Include="Assets\*.*">
+      <Filter>Resources</Filter>
+    </None>
+    <None Include="Assets\*.*" />
+    <None Include="Assets\*.*" />
+    <None Include="Assets\*.*">
+      <Filter>Resources</Filter>
+    </None>
+    <None Include="Examples\*.*" />
+    <None Include="Examples\*.*" />
+    <None Include="Examples\*.*" />
+    <None Include="Examples\*.*" />
+    <None Include="Examples\*.*" />
+    <None Include="Examples\*.*" />
+    <None Include="Examples\*.*" />
+    <None Include="Examples\*.*" />
+    <None Include="Examples\*.*" />
+    <None Include="Examples\*.*" />
+    <None Include="Examples\*.*" />
+    <None Include="Examples\*.*" />
+    <None Include="Examples\*.*" />
+    <None Include="Examples\*.*" />
+  </ItemGroup>
+</Project>

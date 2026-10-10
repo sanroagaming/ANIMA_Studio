@@ -1,0 +1,25 @@
+app Hello {
+  scene Home {
+    node Screen {
+      flow: column(cross: center, route: center, gap: 14);
+      wide: "100%";
+      tall: "100vh";
+      fill: "#070912";
+      ink: "#f4f7ff";
+      node Title: Heading {
+        text: "Hello, Anima.";
+        scale: 56;
+        weight: 300;
+        gradient: "linear-gradient(100deg,#ffffff,#75ddff,#ab88ff)";
+        motion: Reveal;
+      }
+      node Subtitle: Paragraph {
+        text: "Code × Motion × Interfaces";
+        scale: 15;
+        tracking: 0.12;
+        ink: "#9aa8c7";
+        motion: FadeUp;
+      }
+    }
+  }
+}

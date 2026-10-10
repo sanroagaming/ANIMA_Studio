@@ -1,0 +1,40 @@
+app GlassCard {
+  scene Home {
+    node Screen {
+      flow: column(cross: center, route: center);
+      wide: "100%";
+      tall: "100vh";
+      fill: "#070912";
+      ink: "#f4f7ff";
+      node Card {
+        flow: column(gap: 13);
+        wide: "min(420px, 82vw)";
+        inset: "28px";
+        curve: 26;
+        fill: "rgba(255,255,255,0.055)";
+        backdrop: "blur(18px) saturate(180%)";
+        edge: "1px solid rgba(255,255,255,0.16)";
+        halo: "0 20px 70px rgba(0,0,0,0.36)";
+        node Eyebrow: Small {
+          text: "ANIMA / 001";
+          scale: 10;
+          tracking: 0.2;
+          case: upper;
+          ink: "#75ddff";
+        }
+        node Title: Heading {
+          text: "Interfaces that move.";
+          scale: 30;
+          weight: 450;
+          motion: Reveal;
+        }
+        node Body: Paragraph {
+          text: "Structure, motion, and sound in a single source.";
+          scale: 14;
+          leading: 1.6;
+          ink: "#a8b1ca";
+        }
+      }
+    }
+  }
+}

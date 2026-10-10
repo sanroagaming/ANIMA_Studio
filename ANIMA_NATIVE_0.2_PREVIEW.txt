@@ -1,0 +1,44 @@
+ANIMA NATIVE 0.2 PREVIEW
+========================
+
+This release adds the first self-contained ANIMA 0.2 language runtime to the native Visual Studio suite.
+
+OPEN THE FULL STUDIO
+--------------------
+Open ANIMA_Studio.sln in Visual Studio 2022.
+Choose Debug | x64, then Build > Build Solution, then F5.
+For the documentation app, right-click AnimaDocs in Solution Explorer and select Set as Startup Project.
+For the language runner, right-click AnimaLang and select Set as Startup Project.
+
+OPEN ONLY THE LANGUAGE RUNTIME
+------------------------------
+Open AnimaLang/AnimaLang.sln.
+Choose Debug | x64, then Build > Build Solution, then F5.
+The project F5 command runs the sample AnimaLangExamples/native-power.ani.
+
+REQUIREMENTS
+------------
+Windows 10/11; Visual Studio 2022; Desktop development with C++; MSVC v143; Windows 10 or 11 SDK.
+C++20. Direct3D 12/DXGI libraries are linked by the language project.
+
+SOURCES AND LEARNING
+--------------------
+AnimaLang/src/AnimaLang.cpp           Native source reader + evaluator
+AnimaLang/src/AnimaGpu.cpp/.h         CPU/GPU capabilities + D3D12 compute backend
+AnimaLang/docs/ANIMA_02_LANGUAGE_SPEC.md  Language specification
+AnimaLang/Examples/*.ani              Source examples
+AnimaDocs/Content/12-native-language-v02.md  Documentation app chapter
+
+LANGUAGE DESIGN NOTE
+--------------------
+ANIMA owns its syntax, values, execution rules, and runtime. There is no third-party or generated lexer/parser dependency; source is read and evaluated by a bundled in-house C++ implementation. Syntax recognition is still needed by every language implementation. This 0.2 preview is an interpreter/runtime, not yet an ahead-of-time compiler that turns .ani files into standalone machine code.
+
+CPU/GPU ACCESS
+--------------
+The built-ins include host.platform(), cpu.logical_cores(), cpu.parallel_sum(N),
+gpu.available(), gpu.adapter(), gpu.backend(), gpu.vram_mb(), gpu.dxr_supported(), and gpu.squares(N).
+The D3D12 backend selects an adapter and implements GPU compute for squares. DXR is queried but ray-tracing pipelines are not yet implemented by the language runtime. GPU access is explicit and bounded, not arbitrary unrestricted access to all device memory.
+
+TESTED HERE
+-----------
+The C++ language runtime builds with GCC/CMake on Linux; all three sample programs pass --check; the native power sample returns 500000500000 for a sum over one million values. Real Windows/MSVC and D3D12 GPU execution still need to be tested in Visual Studio on Windows.

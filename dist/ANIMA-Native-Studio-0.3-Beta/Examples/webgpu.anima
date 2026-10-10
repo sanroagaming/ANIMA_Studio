@@ -1,0 +1,85 @@
+app WebGPUStudio {
+  scene Home {
+    node Screen {
+      flow: column(cross: center, route: center, gap: 14);
+      wide: "100%";
+      tall: "100vh";
+      fill: "#070912";
+      ink: "#f4f7ff";
+      inset: "22px";
+      node Title: Heading {
+        text: "ANIMA × WebGPU";
+        scale: 32;
+        weight: 450;
+        motion: Reveal;
+      }
+      node Intro: Paragraph {
+        text: "Request a GPU device, dispatch a compute kernel, or render a custom WGSL fragment function.";
+        scale: 13;
+        leading: 1.6;
+        ink: "#a8b1ca";
+      }
+      node Controls {
+        flow: row(cross: center, gap: 8, wrap: true);
+        node RequestGPU: Button {
+          text: "Request GPU";
+          inset: "10px 14px";
+          curve: 999;
+          fill: "#75ddff";
+          ink: "#061019";
+          on click: gpu.request();
+        }
+        node ComputeGPU: Button {
+          text: "Compute demo";
+          inset: "10px 14px";
+          curve: 999;
+          fill: "rgba(255,255,255,0.08)";
+          ink: "#f4f7ff";
+          edge: "1px solid rgba(255,255,255,0.15)";
+          on click: gpu.computeDemo();
+        }
+        node CustomComputeGPU: Button {
+        text: "Custom WGSL compute";
+        inset: "10px 14px";
+        curve: 999;
+        fill: "rgba(255,255,255,0.08)";
+        ink: "#f4f7ff";
+        edge: "1px solid rgba(255,255,255,0.15)";
+        on click: gpu.compute("@group(0) @binding(0) var<storage, read_write> values: array<f32>; @compute @workgroup_size(64) fn main(@builtin(global_invocation_id) id: vec3<u32>) { let i = id.x; if (i < arrayLength(&values)) { values[i] = values[i] * values[i]; } }", [1, 2, 3, 4]);
+      }
+      node RenderGPU: Button {
+          text: "Custom WGSL render";
+          inset: "10px 14px";
+          curve: 999;
+          fill: "rgba(255,255,255,0.08)";
+          ink: "#f4f7ff";
+          edge: "1px solid rgba(255,255,255,0.15)";
+          on click: gpu.render("GpuCanvas", "fn fragmentColor(uv: vec2<f32>, time: f32) -> vec4<f32> { let wave = 0.5 + 0.5 * sin(time + uv.x * 9.0); let ridge = exp(-abs(uv.y - 0.5 - 0.13 * sin(uv.x * 8.0 + time)) * 24.0); return vec4<f32>(0.035 + ridge * 0.10, 0.18 + wave * 0.32, 0.48 + ridge * 0.42, 1.0); }");
+        }
+        node StopGPU: Button {
+          text: "Stop render";
+          inset: "10px 14px";
+          curve: 999;
+          fill: "rgba(255,255,255,0.08)";
+          ink: "#f4f7ff";
+          edge: "1px solid rgba(255,255,255,0.15)";
+          on click: gpu.stop();
+        }
+      }
+      node GpuStatus: Paragraph {
+        text: "Not initialized. Choose Request GPU first.";
+        scale: 12;
+        leading: 1.5;
+        ink: "#75ddff";
+        wide: "100%";
+      }
+      node GpuCanvas: canvas {
+        wide: "100%";
+        tall: 260;
+        curve: 18;
+        fill: "#050711";
+        edge: "1px solid rgba(255,255,255,0.15)";
+      }
+    }
+  }
+}

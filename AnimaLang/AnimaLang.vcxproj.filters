@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup><Filter Include="Source"><UniqueIdentifier>{67E5B139-3B72-4805-9772-B86841498591}</UniqueIdentifier></Filter><Filter Include="Examples"><UniqueIdentifier>{3F3BBAB8-04C2-41EF-A0CA-49D708CFE801}</UniqueIdentifier></Filter><Filter Include="Documentation"><UniqueIdentifier>{7DE9C41C-2108-47EE-BAA5-A774BA57A7BD}</UniqueIdentifier></Filter><Filter Include="Tests"><UniqueIdentifier>{8582BC15-5A72-494C-A915-68A8D94DBFF9}</UniqueIdentifier></Filter></ItemGroup>
+  <ItemGroup><ClCompile Include="src\AnimaLang.cpp"><Filter>Source</Filter></ClCompile><ClCompile Include="src\AnimaGpu.cpp"><Filter>Source</Filter></ClCompile><ClInclude Include="src\AnimaGpu.h"><Filter>Source</Filter></ClInclude></ItemGroup>
+  <ItemGroup><None Include="Examples\native-power.ani"><Filter>Examples</Filter></None><None Include="Examples\definitions.ani"><Filter>Examples</Filter></None><None Include="Examples\math-and-conditions.ani"><Filter>Examples</Filter></None><None Include="README.md"><Filter>Documentation</Filter></None><None Include="docs\ANIMA_02_LANGUAGE_SPEC.md"><Filter>Documentation</Filter></None><None Include="Tests\Run-Smoke-Tests.bat"><Filter>Tests</Filter></None></ItemGroup>
+</Project>

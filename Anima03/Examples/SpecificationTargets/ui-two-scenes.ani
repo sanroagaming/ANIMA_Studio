@@ -1,0 +1,42 @@
+ANIMA 0.3
+
+# SPECIFICATION TARGET — declarative UI tree from Appendix A.3.
+# The 0.3bc frontend preserves this declaration; executable UI host binding is 0.3f.
+app TwoScenes {
+    scene Home {
+        node Screen {
+            flow: column(cross: center, route: center, gap: 18)
+            wide: "100%"
+            tall: "100vh"
+            fill: "#070912"
+            ink: "#f5f7ff"
+            node Title: Heading { text: "Home"; scale: 48; weight: 300; motion: Reveal }
+            node Next: Button {
+                text: "Open details"
+                inset: "13px 20px"
+                curve: 999
+                fill: "#75ddff"
+                ink: "#061019"
+                on click { go("Details") }
+            }
+        }
+    }
+    scene Details {
+        node Screen {
+            flow: column(cross: center, route: center, gap: 18)
+            wide: "100%"
+            tall: "100vh"
+            fill: "#0d0b1d"
+            ink: "#f5f7ff"
+            node Title: Heading { text: "Details"; scale: 48; weight: 300; motion: Reveal }
+            node Back: Button {
+                text: "Back home"
+                inset: "13px 20px"
+                curve: 999
+                fill: "rgba(171,136,255,0.18)"
+                ink: "#f5f7ff"
+                on click { go("Home") }
+            }
+        }
+    }
+}

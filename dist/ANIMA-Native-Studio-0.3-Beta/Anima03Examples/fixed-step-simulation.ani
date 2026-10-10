@@ -1,0 +1,19 @@
+ANIMA 0.3
+
+# Runnable 0.3bc scalar simulation; vec3/classes/components are later milestones.
+project "Fixed-step scalar motion" {
+    target native.windows
+    capability time.clock
+}
+
+start {
+    let position: real <- 0.0
+    let velocity: real <- 3.5
+    let step: real <- 1.0 / 60.0
+
+    repeat 120 {
+        position <- position + velocity * step
+    }
+
+    announce "Position after 120 fixed steps: {position}"
+}
